@@ -1,0 +1,9 @@
+{
+  "id": "local-demo",
+  "name": "Local demo source",
+  "version": "0.1.0",
+  "description": "Example 'source' extension: searches a folder and plays files through the extension API. Copy it to the plugins folder to try it.",
+  "exec": ["python3", "-S", "main.py"],
+  "capabilities": ["source"],
+  "setup": "Set LUMEN_DEMO_DIR to the folder it should search."
+}

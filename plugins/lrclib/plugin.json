@@ -1,0 +1,10 @@
+{
+  "id": "lrclib",
+  "name": "LRCLIB",
+  "version": "0.1.0",
+  "description": "Synced and plain lyrics from lrclib.net (free, no account).",
+  "exec": ["python3", "-S", "main.py"],
+  "capabilities": ["lyrics"],
+  "memoryLimitMB": 20,
+  "setup": "Needs python3 (standard library only)."
+}
