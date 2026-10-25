@@ -1,0 +1,11 @@
+{
+  "id": "ytdlp",
+  "name": "yt-dlp: YouTube + SoundCloud",
+  "version": "0.1.0",
+  "description": "Search and stream YouTube and SoundCloud through your own yt-dlp. Audio is lossy (Opus/AAC/MP3).",
+  "author": "Lumen",
+  "exec": ["python3", "-S", "main.py"],
+  "capabilities": ["source"],
+  "memoryLimitMB": 64,
+  "setup": "Install yt-dlp (Arch: pacman -S yt-dlp) and keep it updated. Using it may break a site's terms of service; that's your call."
+}

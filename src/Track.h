@@ -22,6 +22,7 @@ struct Track {
     qint64 mtime = 0;     // for incremental rescans
     qint64 size = 0;
     QString coverUrl;     // remote tracks only
+    QString headers;      // remote tracks only: "Key: Value\r\n..." for FFmpeg
     bool lossless = false;
 
     // "FLAC · 24-bit / 96 kHz"  or  "MP3 · 320 kbps"

@@ -3,6 +3,7 @@
 #include "Icons.h"
 #include "Library.h"
 #include "Lyrics.h"
+#include "Marketplace.h"
 #include "Palette.h"
 #include "Player.h"
 #include "PluginManager.h"
@@ -40,6 +41,7 @@ int main(int argc, char** argv)
     Library library;
     PluginManager plugins;
     Lyrics lyrics(&plugins);
+    Marketplace market(&plugins);
     Player player(&engine, &library, &plugins);
     Palette palette;
     UiState state;
@@ -59,11 +61,21 @@ int main(int argc, char** argv)
     ctx->setContextProperty("Player", &player);
     ctx->setContextProperty("Plugins", &plugins);
     ctx->setContextProperty("Lyrics", &lyrics);
+    ctx->setContextProperty("Market", &market);
     ctx->setContextProperty("Pal", &palette);
     ctx->setContextProperty("Ui", &state);
     qml.load(QUrl("qrc:/qml/Main.qml"));
     if (qml.rootObjects().isEmpty()) return 1;
 
+    if (qEnvironmentVariableIsSet("LUMEN_MARKET_INSTALL")) {       // test hook
+        QObject::connect(&market, &Marketplace::itemsChanged, &market, [&] {
+            static bool done = false;
+            if (done) return;
+            done = true;
+            market.install(qEnvironmentVariable("LUMEN_MARKET_INSTALL"));
+        });
+        QTimer::singleShot(800, &market, &Marketplace::refresh);
+    }
     player.restoreSession();       // paused, where you left off
     for (const QString& a : app.arguments().mid(1)) library.addFolder(a);
 
@@ -85,6 +97,7 @@ int main(int argc, char** argv)
         QTimer::singleShot(qEnvironmentVariableIntValue("LUMEN_DELAY") ? qEnvironmentVariableIntValue("LUMEN_DELAY") : 5000, [&] {
             QFile st("/proc/self/status"); st.open(QIODevice::ReadOnly);
             for (const QByteArray& l : st.readAll().split('\n')) if (l.startsWith("VmRSS") || l.startsWith("RssAnon")) qInfo("%s", l.constData());
+            { QStringList ids; for (const QVariant& v : plugins.list()) ids << v.toMap().value("id").toString(); qInfo("extensions=%s | market: %s", qPrintable(ids.join(',')), qPrintable(market.message())); }
             qInfo("library=%d folders=%lld", library.trackCount(), (long long)library.folders().size());
             qInfo("now: %s | %lld ms | playing=%d | lyrics=%s lines=%lld cur=%d src=%s", qPrintable(player.title()), (long long)player.position(),
                   int(player.playing()), qPrintable(lyrics.state()), (long long)lyrics.lines().size(), lyrics.current(), qPrintable(lyrics.source()));

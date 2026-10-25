@@ -20,7 +20,8 @@ Debian/Ubuntu: `qt6-base-dev qt6-declarative-dev qml6-module-qtquick{,-controls,
 | Persistence | Library, folders, lyrics cache, extension on/off + order, volume/shuffle/repeat, window size, last page, and the play queue + position (comes back paused where you left off). |
 | Search | One page for songs + albums in the library and every enabled `source` extension. Filter boxes on Albums/Songs stay too. |
 | Lyrics | Synced (LRC) or plain, with a big follow-along view. Order: `.lrc` file next to the song, cache, then lyrics extensions in your priority order. Candidates are ranked by title (70%), artist (20%), length (10%) so a loose search can't pick the wrong song. |
-| Extensions | Separate processes speaking JSON-RPC over stdio, started on demand, stopped after 60 s idle, memory-watched (20 MB cap for official). Capabilities: `lyrics`, `source`. See `docs/PLUGINS.md`. Official: `plugins/lrclib` (LRCLIB lyrics). Example source: `examples/plugins/local-demo`. |
+| Marketplace | Settings -> Get more extensions reads a JSON index from any address (GitHub raw, file://, a path). Downloads must match the SHA-256 in the index, are unpacked without links, and start disabled. Build packages with `tools/package_extensions.py`. |
+| Extensions | Separate processes speaking JSON-RPC over stdio, started on demand, stopped after 60 s idle, memory-watched (20 MB cap for official). Capabilities: `lyrics`, `source`. See `docs/PLUGINS.md`. Official: `plugins/lrclib` (LRCLIB lyrics). Community-style: `extensions/ytdlp` (YouTube + SoundCloud through your own yt-dlp, not bundled; install it from the store). Example: `examples/plugins/local-demo`. |
 | UI | Material 3 style panels, dynamic palette + soft cover backdrop, wavy seek bar, expressive play button, lyrics page, search page, settings page. Icons drawn from SVG path data in C++. |
 
 Keyboard: Space = play/pause (outside text boxes), Tab/Enter on controls, Left/Right on seek and volume.
@@ -40,12 +41,14 @@ Data location: `~/.local/share/lumen/` (override with `LUMEN_DATA_DIR`). Communi
     plugins/             official extensions (copied next to the binary at build time)
     examples/plugins/    example extensions
     docs/PLUGINS.md      extension protocol
-    tests/               mock lyrics server for offline testing
+    tests/               mock lyrics server, header-checking stream server, yt-dlp stand-in
+    extensions/ytdlp/    yt-dlp source extension (package it, then install via the store)
+    tools/               package_extensions.py
 
 ## Not done yet
 
-- Extension marketplace (index of installable extensions) and streaming sources such as YouTube Music / SoundCloud.
-- Request headers from `source.resolve` (cookies, auth) are not passed to FFmpeg yet; remote tracks don't get gapless/queueing.
+- A hosted index repository (the default index address is a placeholder), signing beyond SHA-256, and extension updates on a schedule.
+- Remote tracks don't get queueing or gapless playback, and the yt-dlp extension is only tested against a stand-in, not the live sites.
 - MPRIS (media keys), queue editing, artist pages, bit-perfect exclusive ALSA mode.
 - Embedded lyrics tags are not read yet (sidecar `.lrc` files are).
 

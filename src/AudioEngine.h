@@ -30,8 +30,8 @@ public:
     explicit AudioEngine(QObject* parent = nullptr);
     ~AudioEngine() override;
 
-    void load(const QString& path, qint64 token, qint64 startMs = 0, bool autoplay = true);
-    void setNext(const QString& path, qint64 token);   // empty path clears
+    void load(const QString& path, qint64 token, qint64 startMs = 0, bool autoplay = true, const QString& headers = {});
+    void setNext(const QString& path, qint64 token, const QString& headers = {});   // empty path clears
     void setPlaying(bool on);
     bool playing() const { return m_playing; }
     void seek(qint64 ms);
@@ -44,8 +44,8 @@ signals:
     void nextConsumed(qint64 token);   // decoder started the queued track
 
 private:
-    struct Job { QString path; qint64 token = -1; qint64 startMs = 0; bool valid = false; };
-    struct Segment { qint64 token; QString path; qint64 baseMs; quint64 startFrame; int rate; };
+    struct Job { QString path; qint64 token = -1; qint64 startMs = 0; bool valid = false; QString headers; };
+    struct Segment { qint64 token; QString path; qint64 baseMs; quint64 startFrame; int rate; QString headers; };
 
     static void dataCallback(ma_device* dev, void* out, const void* in, unsigned frames);
     void render(float* out, unsigned frames);

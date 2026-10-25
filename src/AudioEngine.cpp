@@ -44,7 +44,7 @@ void AudioEngine::stop()
     m_playing = false;
 }
 
-void AudioEngine::load(const QString& path, qint64 token, qint64 startMs, bool autoplay)
+void AudioEngine::load(const QString& path, qint64 token, qint64 startMs, bool autoplay, const QString& headers)
 {
     haltThread();
     {
@@ -52,20 +52,20 @@ void AudioEngine::load(const QString& path, qint64 token, qint64 startMs, bool a
         m_rd = m_wr;
         m_segs.clear();
     }
-    { std::lock_guard<std::mutex> g(m_jobMx); m_next = {}; m_cur = {path, token, startMs, true}; }
+    { std::lock_guard<std::mutex> g(m_jobMx); m_next = {}; m_cur = {path, token, startMs, true, headers}; }
     m_error.clear();
     m_stop = false;
     m_ended = false;
     m_seekReq = false;
     m_playing = autoplay;
     if (autoplay) deviceStart();
-    m_thread = std::thread(&AudioEngine::decodeLoop, this, Job{path, token, startMs, true});
+    m_thread = std::thread(&AudioEngine::decodeLoop, this, Job{path, token, startMs, true, headers});
 }
 
-void AudioEngine::setNext(const QString& path, qint64 token)
+void AudioEngine::setNext(const QString& path, qint64 token, const QString& headers)
 {
     std::lock_guard<std::mutex> g(m_jobMx);
-    m_next = path.isEmpty() ? Job{} : Job{path, token, 0, true};
+    m_next = path.isEmpty() ? Job{} : Job{path, token, 0, true, headers};
 }
 
 void AudioEngine::setPlaying(bool on)
@@ -97,8 +97,8 @@ void AudioEngine::seek(qint64 ms)
     // buffered tail of this one): restart this track and re-queue the other.
     const bool wasPlaying = m_playing;
     const Job again = decoding;
-    load(cur.path, cur.token, ms, wasPlaying);
-    setNext(again.path, again.token);
+    load(cur.path, cur.token, ms, wasPlaying, cur.headers);
+    setNext(again.path, again.token, again.headers);
 }
 
 AudioEngine::Poll AudioEngine::poll()
@@ -286,6 +286,7 @@ bool AudioEngine::decodeOne(const Job& job)
         av_dict_set(&opts, "reconnect_delay_max", "5", 0);
         av_dict_set(&opts, "rw_timeout", "15000000", 0);
         av_dict_set(&opts, "user_agent", "Lumen/0.2", 0);
+        if (!job.headers.isEmpty()) av_dict_set(&opts, "headers", job.headers.toUtf8().constData(), 0);
     }
     const int openRc = avformat_open_input(&fmt, p.constData(), nullptr, &opts);
     av_dict_free(&opts);
@@ -313,7 +314,7 @@ bool AudioEngine::decodeOne(const Job& job)
 
     auto pushSegment = [&](qint64 baseMs) {
         std::lock_guard<std::mutex> g(m_mx);
-        m_segs.push_back({job.token, job.path, baseMs, m_wr, rate});
+        m_segs.push_back({job.token, job.path, baseMs, m_wr, rate, job.headers});
     };
 
     double skipUntil = -1.0;

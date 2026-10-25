@@ -54,5 +54,32 @@ next provider if nothing is close enough. Lyrics are cached locally; a
 `source.search` params: `query`, `limit` -> `[{"id", "title", "artist", "album", "durationMs", "cover"}]`
 (`cover` is an http(s) URL, optional)
 
-`source.resolve` params: `id` -> `{"url", "format", "lossless", "sampleRate", "bitDepth", "bitrateKbps"}`
+`source.resolve` params: `id` -> `{"url", "headers", "format", "lossless", "sampleRate", "bitDepth", "bitrateKbps"}`
 `url` is anything FFmpeg can open (http, https, file). Only `url` is required.
+`headers` (optional, an object such as `{"User-Agent": "..."}`) is sent with every request for that stream.
+
+## Sharing extensions (marketplace)
+
+The store in Settings reads a JSON index from any address you give it
+(https, file://, or a local path). There is no central server: host the index
+and packages anywhere, for example a GitHub repository.
+
+```json
+{
+  "version": 1,
+  "extensions": [
+    {
+      "id": "ytdlp", "name": "...", "version": "0.1.0", "description": "...",
+      "capabilities": ["source"], "author": "...", "setup": "...",
+      "download": { "url": "ytdlp-0.1.0.tar.gz", "sha256": "<64 hex chars>" }
+    }
+  ]
+}
+```
+
+- `download.url` may be relative to the index. `sha256` is required: Lumen
+  refuses a listing without one, and refuses a download that doesn't match.
+- A package is a `.tar.gz` holding the extension folder (with `plugin.json`).
+  Links inside the archive are rejected, and `plugin.json`'s `id` must match the listing.
+- Installed extensions start **disabled**. The user switches them on.
+- `python3 tools/package_extensions.py extensions/ dist/` builds the packages and the index.

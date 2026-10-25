@@ -260,6 +260,19 @@ void PluginManager::move(const QString& id, int delta)
     emit changed();
 }
 
+bool PluginManager::uninstall(const QString& id)
+{
+    const auto it = m_info.constFind(id);
+    if (it == m_info.constEnd() || it->official) return false;
+    const QString dir = it->dir;
+    if (!dir.startsWith(QFileInfo(m_userDir).canonicalFilePath() + QLatin1Char('/'))) return false;   // never touch anything outside our folder
+    if (m_proc.contains(id)) m_proc[id]->stop();
+    const bool ok = QDir(dir).removeRecursively();
+    Db::get().setKv("plugin." + id + ".enabled", "0");
+    rescan();
+    return ok;
+}
+
 void PluginManager::openUserDir() { QDesktopServices::openUrl(QUrl::fromLocalFile(m_userDir)); }
 
 QStringList PluginManager::enabledWith(const QString& cap) const

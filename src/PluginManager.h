@@ -69,6 +69,7 @@ public:
     Q_INVOKABLE void setEnabled(const QString& id, bool on);
     Q_INVOKABLE void move(const QString& id, int delta);
     Q_INVOKABLE void openUserDir();
+    Q_INVOKABLE bool uninstall(const QString& id);     // community extensions only
     Q_INVOKABLE void search(const QString& query);      // source plugins -> searchResult()
 
     QStringList enabledWith(const QString& capability) const;

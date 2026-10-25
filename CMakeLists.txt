@@ -8,7 +8,7 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-find_package(Qt6 6.4 REQUIRED COMPONENTS Quick Concurrent)
+find_package(Qt6 6.4 REQUIRED COMPONENTS Quick Concurrent Network)
 find_package(Threads REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(SQLITE REQUIRED IMPORTED_TARGET sqlite3)
@@ -25,6 +25,7 @@ add_executable(lumen
   src/Db.cpp               src/Db.h
   src/PluginManager.cpp    src/PluginManager.h
   src/Lyrics.cpp           src/Lyrics.h
+  src/Marketplace.cpp      src/Marketplace.h
   src/UiState.h
   src/Player.cpp           src/Player.h
   src/Icons.cpp            src/Icons.h
@@ -59,7 +60,7 @@ qt_add_resources(lumen "qml" PREFIX "/" FILES
 )
 
 target_include_directories(lumen PRIVATE third_party)
-target_link_libraries(lumen PRIVATE Qt6::Quick Qt6::Concurrent PkgConfig::FFMPEG PkgConfig::SQLITE Threads::Threads ${CMAKE_DL_LIBS} m)
+target_link_libraries(lumen PRIVATE Qt6::Quick Qt6::Concurrent Qt6::Network PkgConfig::FFMPEG PkgConfig::SQLITE Threads::Threads ${CMAKE_DL_LIBS} m)
 target_compile_options(lumen PRIVATE -Wall -Wextra -Wno-unused-parameter)
 set_source_files_properties(src/miniaudio_impl.cpp PROPERTIES COMPILE_OPTIONS "-w")
 

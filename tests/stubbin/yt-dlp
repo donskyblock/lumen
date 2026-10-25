@@ -1,0 +1,13 @@
+#!/usr/bin/env python3
+# Test stand-in for yt-dlp: canned JSON, no network.
+import json, sys
+a = sys.argv[1:]
+if "--flat-playlist" in a:
+    q = a[-1]
+    site = "YT" if q.startswith("ytsearch") else "SC"
+    print(json.dumps({"entries": [
+        {"url": "https://stub/%s/%d" % (site, i), "title": "%s result %d" % (site, i), "uploader": "Uploader %s" % site,
+         "duration": 200 + i, "thumbnails": []} for i in range(1, 4)]}))
+else:
+    print(json.dumps({"url": "http://127.0.0.1:8770/t.flac", "http_headers": {"X-Test": "yes", "User-Agent": "stub"},
+                      "acodec": "flac", "abr": 0, "ext": "flac"}))

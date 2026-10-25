@@ -95,7 +95,7 @@ void Player::queueFollowing(int afterPos)
     if (f < 0) { m_engine->setNext({}, -1); return; }
     const qint64 token = ++m_tokenSeq;
     m_posByToken.insert(token, f);
-    m_engine->setNext(m_items[m_order[f]].path, token);
+    m_engine->setNext(m_items[m_order[f]].path, token, m_items[m_order[f]].headers);
 }
 
 void Player::announceTrack()
@@ -118,7 +118,7 @@ void Player::startAt(int orderPos, qint64 startMs, bool autoplay)
     m_error.clear();
     m_stopped = false;
     m_idle.stop();
-    m_engine->load(m_items[m_order[orderPos]].path, token, startMs, autoplay);
+    m_engine->load(m_items[m_order[orderPos]].path, token, startMs, autoplay, m_items[m_order[orderPos]].headers);
     queueFollowing(orderPos);
     setPlaying(autoplay);
     emit trackChanged();
@@ -166,6 +166,9 @@ void Player::playRemote(const QString& pluginId, const QVariantMap& item)
             t.album = item.value("album").toString();
             t.durationMs = item.value("durationMs").toLongLong();
             t.coverUrl = item.value("cover").toString();
+            const QJsonObject hdr = o.value("headers").toObject();
+            for (auto it = hdr.begin(); it != hdr.end(); ++it)
+                t.headers += it.key() + QStringLiteral(": ") + it.value().toString() + QStringLiteral("\r\n");
             t.codec = o.value("format").toString().toUpper();
             t.lossless = o.value("lossless").toBool();
             t.sampleRate = o.value("sampleRate").toInt();
