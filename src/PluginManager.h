@@ -62,15 +62,19 @@ class PluginManager : public QObject {
     Q_OBJECT
     Q_PROPERTY(QVariantList list READ list NOTIFY changed)
     Q_PROPERTY(QString userDir READ userDir CONSTANT)
+    Q_PROPERTY(bool onboardingPending READ onboardingPending CONSTANT)
 public:
     explicit PluginManager(QObject* parent = nullptr);
     QVariantList list() const;
     QString userDir() const { return m_userDir; }
+    bool onboardingPending() const;
 
     Q_INVOKABLE void rescan();
     Q_INVOKABLE void setEnabled(const QString& id, bool on);
     Q_INVOKABLE void move(const QString& id, int delta);
     Q_INVOKABLE void openUserDir();
+    Q_INVOKABLE QString installOfficialExtensions();
+    Q_INVOKABLE void finishOnboarding();
     Q_INVOKABLE bool uninstall(const QString& id);     // community extensions only
     Q_INVOKABLE void setOption(const QString& id, const QString& key, const QString& value);
     QString optionValue(const QString& id, const QString& key) const;

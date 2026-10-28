@@ -27,6 +27,7 @@ struct Track {
     qint64 added = 0;     // when Lumen first saw the file
     QString headers;      // remote tracks only: "Key: Value\r\n..." for FFmpeg
     bool lossless = false;
+    bool explicitLyrics = false; // online catalog metadata
     // Catalog (online) tracks only. path is "lumen://dz/<id>"; the playable address is found at play time.
     QString artistId, albumId;
     int rank = 0;                 // catalog popularity, higher = more popular

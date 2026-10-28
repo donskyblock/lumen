@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Lumen
+GenericName=Music Player
+Comment=Listen to your local music library
+Exec=lumen
+Icon=audio-x-generic
+Terminal=false
+Categories=Audio;Music;Player;
+StartupWMClass=lumen

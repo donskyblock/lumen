@@ -5,11 +5,33 @@ Material 3 look, no Electron, no QtWebEngine.
 
 ## Build (Arch)
 
-    sudo pacman -S --needed base-devel cmake ninja qt6-base qt6-declarative ffmpeg sqlite python
+    sudo pacman -S --needed base-devel cmake ninja qt6-base qt6-declarative ffmpeg sqlite zlib python
     cmake -B build -G Ninja && cmake --build build
     ./build/lumen ~/Music            # folder is remembered afterwards
 
-Debian/Ubuntu: `qt6-base-dev qt6-declarative-dev qml6-module-qtquick{,-controls,-window,-layouts} libavformat-dev libavcodec-dev libswresample-dev libavutil-dev libsqlite3-dev python3` (+ `qml6-module-qtquick-dialogs` for the Browse button).
+Debian/Ubuntu: `qt6-base-dev qt6-declarative-dev qml6-module-qtquick{,-controls,-window,-layouts} libavformat-dev libavcodec-dev libswresample-dev libavutil-dev libsqlite3-dev zlib1g-dev python3` (+ `qml6-module-qtquick-dialogs` for the Browse button).
+
+## Build (Windows 10/11)
+
+Install Visual Studio 2022 with the **Desktop development with C++** workload, CMake, and Git for Windows. From PowerShell in the repository:
+
+    .\setup.ps1
+    .\build.ps1
+    .\run.ps1
+
+`setup.ps1` bootstraps vcpkg under `.deps\vcpkg` and installs Qt 6, FFmpeg, and SQLite. To use an existing vcpkg checkout, set `$env:LUMEN_VCPKG_ROOT` first. The default build uses the x64 Visual Studio generator and writes to `build-windows\Release\lumen.exe`.
+
+Install the built app for your Windows user with `./install-windows.ps1`. It copies the runtime files and official extensions under `%LOCALAPPDATA%\Programs\Lumen` and adds a Start Menu shortcut.
+
+## Install on Linux
+
+Build and install a user-local copy (`~/.local` by default), including an application launcher:
+
+    ./install-linux.sh
+
+Set `PREFIX=/usr/local` to install system-wide (run with appropriate privileges), or set `LUMEN_BUILD_DIR` to select a different build directory. On first launch, Lumen offers to copy all official extensions from the installed repository bundle into its user extensions folder; you can also skip this and do it later from Settings.
+
+Spotify playlist imports are in **Settings → Your algorithm → Import Spotify playlists**. Import either Spotify's Account data ZIP/JSON export or a CSV downloaded from [TuneMyMusic](https://www.tunemymusic.com/transfer/spotify-to-file). TuneMyMusic's free export is limited to 500 tracks; larger libraries can use Spotify's account-data export. Lumen reads the file locally and searches its online catalog using title, artist, album, and duration to find a likely match. Matched tracks are stored as online catalog entries in the imported playlists; Liked/Favorite Songs exports merge into Lumen's **Liked Songs**. Unmatched tracks remain as unavailable metadata entries. Track metadata is sent to the catalog for matching. Lumen does not import or stream Spotify audio.
 
 ## What is in it
 

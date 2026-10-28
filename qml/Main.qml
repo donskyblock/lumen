@@ -1,5 +1,7 @@
 import QtQuick
 import QtQuick.Window
+import QtQuick.Controls
+import "."
 
 Window {
     id: win
@@ -417,6 +419,43 @@ Window {
         ContextMenu { id: menu; anchors.fill: parent; onChosen: (id) => win.menuAction(id) }
         PlaylistPicker { id: picker; anchors.fill: parent; onNewPlaylist: (p) => prompt.ask("New playlist", "My playlist", "newPlaylist", p) }
         PromptDialog { id: prompt; anchors.fill: parent; onAccepted: (a, t, arg) => win.promptDone(a, t, arg) }
+
+        Popup {
+            id: onboarding
+            anchors.centerIn: parent
+            width: 500
+            modal: true
+            focus: true
+            closePolicy: Popup.NoAutoClose
+            onOpened: onboardingMessage = ""
+            property string onboardingMessage: ""
+            Component.onCompleted: if (Plugins.onboardingPending) open()
+            background: Rectangle { radius: 24 * Pal.rs; color: Pal.surfaceHigh; border.width: 1; border.color: Pal.outlineVariant }
+            contentItem: Item {
+                implicitWidth: 500
+                implicitHeight: onboardingContent.implicitHeight + 48
+                Column {
+                    id: onboardingContent
+                    anchors.fill: parent
+                    anchors.margins: 24
+                    spacing: 14
+                    Text { text: "Welcome to Lumen"; font.pixelSize: Math.round(24 * Pal.fs); font.weight: Font.DemiBold; color: Pal.onSurface }
+                    Text {
+                        width: parent.width
+                        wrapMode: Text.WordWrap
+                        text: "Set up the official extensions included with this copy of Lumen. They add lyrics and optional Discord Rich Presence. Their files will be copied from this repository into your user extensions folder."
+                        font.pixelSize: Math.round(14 * Pal.fs); color: Pal.onSurfaceVariant
+                    }
+                    Text { visible: onboarding.onboardingMessage !== ""; text: onboarding.onboardingMessage; wrapMode: Text.WordWrap; color: Pal.onSurface; font.pixelSize: Math.round(13 * Pal.fs) }
+                    Row {
+                        spacing: 10
+                        Item { width: 1; height: 42 }
+                        Pill { text: "Skip for now"; filled: false; onClicked: { Plugins.finishOnboarding(); onboarding.close() } }
+                        Pill { text: "Install official extensions"; filled: true; onClicked: { onboarding.onboardingMessage = Plugins.installOfficialExtensions(); win.say(onboarding.onboardingMessage); onboarding.close() } }
+                    }
+                }
+            }
+        }
 
         Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter

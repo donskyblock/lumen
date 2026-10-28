@@ -44,6 +44,17 @@ Item {
                                      : "Can't reach the online catalog right now. Your own library still works."
                 font.pixelSize: Math.round(14 * Pal.fs); color: Catalog.online ? Pal.onSurfaceVariant : Pal.error
             }
+            Item {
+                width: parent.width; height: 52
+                Column {
+                    anchors.left: parent.left; anchors.right: explicitSwitch.left; anchors.rightMargin: 16
+                    anchors.verticalCenter: parent.verticalCenter; spacing: 3
+                    Text { text: "Prefer explicit versions"; font.pixelSize: Math.round(14 * Pal.fs); font.weight: Font.Medium; color: Pal.onSurface }
+                    Text { text: "When both clean and explicit releases are available"; font.pixelSize: Math.round(12 * Pal.fs); color: Pal.onSurfaceVariant }
+                }
+                Switch { id: explicitSwitch; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
+                         checked: Catalog.preferExplicit; onToggled: (on) => Catalog.setPreferExplicit(on) }
+            }
             Text {
                 width: parent.width; wrapMode: Text.WordWrap
                 text: Resolver.hasFullSource ? "Full-length playback from: " + Resolver.fullSources.join(", ") + ". Songs you own as files always play from the file."
@@ -139,6 +150,8 @@ Item {
                 text: "Extensions add lyrics and online sources. Each one runs as its own small process that starts when needed and stops when idle. Official extensions are held to 20 MB of memory."
                 font.pixelSize: Math.round(14 * Pal.fs); color: Pal.onSurfaceVariant
             }
+            Pill { text: "Copy official extensions to user folder"; filled: false
+                   onClicked: Bus.toast(Plugins.installOfficialExtensions()) }
 
             Repeater {
                 model: Plugins.list

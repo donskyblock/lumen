@@ -27,6 +27,7 @@ class Catalog : public QObject {
     Q_PROPERTY(QString importLabel READ importLabel NOTIFY importChanged)
     Q_PROPERTY(QVariantMap charts READ charts NOTIFY chartsChanged)
     Q_PROPERTY(int savedRevision READ savedRevision NOTIFY savedChanged)
+    Q_PROPERTY(bool preferExplicit READ preferExplicit WRITE setPreferExplicit NOTIFY preferExplicitChanged)
 public:
     using Reply = std::function<void(const QJsonObject& root, const QString& error)>;
     explicit Catalog(Library* lib, QObject* parent = nullptr);
@@ -37,6 +38,8 @@ public:
     QString importLabel() const { return m_importLabel; }
     QVariantMap charts() const { return m_charts; }
     int savedRevision() const { return m_savedRev; }
+    bool preferExplicit() const { return m_preferExplicit; }
+    Q_INVOKABLE void setPreferExplicit(bool on);
 
     // ---- for QML ----
     Q_INVOKABLE int search(const QString& query);                // -> searchDone(gen, {artists, tracks, albums})
@@ -62,6 +65,8 @@ public:
     void relatedArtists(const QString& id, std::function<void(const QVector<Db::CatArtist>&)> cb);
     void topTracks(const QString& id, std::function<void(const QVector<Track>&)> cb);
     void findTrack(const QString& artist, const QString& title, std::function<void(const std::optional<Track>&)> cb);
+    void matchImportedTrack(const QString& title, const QString& artist, const QString& album, qint64 durationMs,
+                            std::function<void(const std::optional<Track>&)> cb);
     void importArtistQuiet(const QString& id, std::function<void(int count)> done);   // used by the algorithm import
     Track toTrack(const QJsonObject& o, const QJsonObject& album = {}) const;
     QVariantMap trackMap(const Track& t) const;
@@ -72,6 +77,7 @@ signals:
     void importChanged();
     void chartsChanged();
     void savedChanged();
+    void preferExplicitChanged();
     void searchDone(int gen, const QVariantMap& result);
     void artistLoaded(const QString& id, const QVariantMap& page);
     void albumLoaded(const QString& id, const QVariantMap& page);
@@ -86,6 +92,7 @@ private:
     void setOnline(bool on);
     QVariantMap artistMap(const QJsonObject& o) const;
     QVariantMap albumMap(const QJsonObject& o, const QString& artistName = {}) const;
+    QVector<Track> chooseTrackVersions(const QVector<Track>& tracks) const;
     QVector<Track> remember(const QVector<Track>& t);
     void collectArtistTracks(const QString& artistId, std::function<void(const Db::CatArtist&, const QVector<Track>&, const QString&)> done,
                              std::function<void(double)> progress);
@@ -107,4 +114,5 @@ private:
     QString m_importId, m_importLabel;
     double m_importProgress = 0;
     int m_savedRev = 0;
+    bool m_preferExplicit = true;
 };

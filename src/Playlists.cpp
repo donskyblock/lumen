@@ -29,6 +29,9 @@ void Playlists::save(PL& p)
 Db::PlItem Playlists::snapshot(const QString& path) const
 {
     if (auto t = m_lib->trackByPath(path)) return {path, t->title, t->artist, t->album, t->durationMs};
+    for (const PL& playlist : m_pl)
+        for (const Db::PlItem& item : playlist.items)
+            if (item.path == path) return item;
     return {path, QFileInfo(path).completeBaseName(), {}, {}, 0};
 }
 
@@ -114,6 +117,61 @@ int Playlists::add(const QString& id, const QStringList& paths)
     }
     if (added) save(*p);
     return added;
+}
+
+int Playlists::importExternal(const QString& name, const QVector<Db::PlItem>& items, bool likedSongs)
+{
+    if (items.isEmpty()) return 0;
+    if (likedSongs) {
+        PL* p = find(m_liked);
+        if (!p) return 0;
+        QSet<QString> have;
+        for (const auto& item : std::as_const(p->items)) have.insert(item.path);
+        int added = 0;
+        for (const auto& item : items) {
+            if (have.contains(item.path)) continue;
+            have.insert(item.path);
+            p->items.push_back(item);
+            m_likedSet.insert(item.path);
+            ++added;
+        }
+        if (added) save(*p);
+        return added;
+    }
+
+    QString listName = name.trimmed();
+    if (listName.isEmpty()) listName = tr("Imported Spotify playlist");
+    auto sameItems = [&](const PL& existing) {
+        if (existing.items.size() != items.size()) return false;
+        for (int i = 0; i < items.size(); ++i) if (existing.items[i].path != items[i].path) return false;
+        return true;
+    };
+    bool nameTaken = false;
+    for (const PL& existing : std::as_const(m_pl)) {
+        if (existing.row.special.isEmpty() && existing.row.name.compare(listName, Qt::CaseInsensitive) == 0) {
+            if (sameItems(existing)) return 0;
+            nameTaken = true;
+        }
+        if (existing.row.special.isEmpty() && existing.row.name.startsWith(listName + QStringLiteral(" (Spotify import"), Qt::CaseInsensitive)) {
+            if (sameItems(existing)) return 0;
+            nameTaken = true;
+        }
+    }
+    if (nameTaken) {
+        const QString base = listName + QStringLiteral(" (Spotify import)");
+        listName = base;
+        int suffix = 2;
+        auto exists = [&](const QString& candidate) {
+            for (const PL& p : std::as_const(m_pl)) if (p.row.name.compare(candidate, Qt::CaseInsensitive) == 0) return true;
+            return false;
+        };
+        while (exists(listName)) listName = base + QStringLiteral(" %1").arg(suffix++);
+    }
+    const qint64 id = Db::get().createPlaylist(listName);
+    PL playlist{{id, listName, {}, 0}, items};
+    m_pl.push_back(std::move(playlist));
+    save(m_pl.last());
+    return items.size();
 }
 
 void Playlists::removeAt(const QString& id, int index)

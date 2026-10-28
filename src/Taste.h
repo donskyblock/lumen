@@ -52,6 +52,7 @@ public:
     void autoplay(int ticket, const QStringList& seeds, const QStringList& exclude);
     Q_INVOKABLE QString exportTo(const QString& fileOrUrl);      // "" on success, otherwise a message
     Q_INVOKABLE void importFrom(const QString& fileOrUrl);       // asynchronous: importFinished() when done
+    Q_INVOKABLE void importSpotifyExport(const QString& fileOrUrl);
     Q_INVOKABLE QString defaultExportName() const;
 
 signals:

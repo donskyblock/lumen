@@ -20,6 +20,7 @@ public:
     Q_INVOKABLE void rename(const QString& id, const QString& name);
     Q_INVOKABLE void remove(const QString& id);
     Q_INVOKABLE int add(const QString& id, const QStringList& paths);        // skips songs already there
+    int importExternal(const QString& name, const QVector<Db::PlItem>& items, bool likedSongs = false);
     Q_INVOKABLE void removeAt(const QString& id, int index);
     Q_INVOKABLE void move(const QString& id, int from, int to);
     Q_INVOKABLE QVariantMap info(const QString& id) const;

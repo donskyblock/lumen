@@ -4,8 +4,11 @@
 #include <QDesktopServices>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QSet>
+#include <QStandardPaths>
 #include <QUrl>
 #include <QDebug>
 #include <signal.h>
@@ -70,7 +73,10 @@ void PluginProcess::startIfNeeded()
     m_proc.setProcessEnvironment(env);
     m_proc.setWorkingDirectory(m_info.dir);
     QStringList args = m_info.exec;
-    const QString prog = args.takeFirst();
+    QString prog = args.takeFirst();
+#ifdef Q_OS_WIN
+    if (prog == QLatin1String("python3") && QStandardPaths::findExecutable(prog).isEmpty()) prog = QStringLiteral("python");
+#endif
     m_status = QStringLiteral("Starting\u2026");
     m_proc.start(prog, args);
     emit statusChanged();
@@ -145,6 +151,7 @@ void PluginProcess::checkMemory()
 {
     const qint64 pid = m_proc.processId();
     if (pid <= 0) return;
+#ifndef Q_OS_WIN
     QFile f(QStringLiteral("/proc/%1/smaps_rollup").arg(pid));
     if (!f.open(QIODevice::ReadOnly)) return;
     for (const QByteArray& l : f.readAll().split('\n')) {
@@ -160,6 +167,7 @@ void PluginProcess::checkMemory()
         connect(&m_proc, &QProcess::finished, this, [this] { m_mem.stop(); emit statusChanged(); });
         return;
     }
+#endif
     emit statusChanged();
 }
 
@@ -180,7 +188,7 @@ void PluginManager::rescan()
     m_info.clear();
 
     QStringList official;
-    for (const QString& d : qEnvironmentVariable("LUMEN_PLUGIN_DIR").split(':', Qt::SkipEmptyParts)) official << d;
+    for (const QString& d : qEnvironmentVariable("LUMEN_PLUGIN_DIR").split(QDir::listSeparator(), Qt::SkipEmptyParts)) official << d;
     const QString app = QCoreApplication::applicationDirPath();
     official << app + "/plugins" << app + "/../share/lumen/plugins";
 
@@ -200,7 +208,15 @@ void PluginManager::rescan()
             i.setup = o.value("setup").toString();
             for (const QJsonValue& v : o.value("exec").toArray()) i.exec << v.toString();
             for (const QJsonValue& v : o.value("capabilities").toArray()) i.capabilities << v.toString();
-            i.dir = QFileInfo(d.filePath(sub)).canonicalFilePath();
+            QString pluginDir = d.filePath(sub);
+            if (isOfficial) {
+                const QString userCopy = QDir(m_userDir).filePath(i.id);
+                QFile userManifest(QDir(userCopy).filePath("plugin.json"));
+                if (userManifest.open(QIODevice::ReadOnly)
+                    && QJsonDocument::fromJson(userManifest.readAll()).object().value("id").toString() == i.id)
+                    pluginDir = userCopy;
+            }
+            i.dir = QFileInfo(pluginDir).canonicalFilePath();
             i.official = isOfficial;
             i.memLimitMB = o.value("memoryLimitMB").toInt(isOfficial ? 20 : 64);
             for (const QJsonValue& ov : o.value("options").toArray()) {
@@ -321,6 +337,64 @@ QStringList PluginManager::enabledWith(const QString& cap) const
     for (const QString& id : m_order)
         if (m_info[id].enabled && m_info[id].capabilities.contains(cap)) out << id;
     return out;
+}
+
+bool PluginManager::onboardingPending() const
+{
+    return Db::get().kv("onboarding.completed", "0") != "1";
+}
+
+void PluginManager::finishOnboarding()
+{
+    Db::get().setKv("onboarding.completed", "1");
+}
+
+QString PluginManager::installOfficialExtensions()
+{
+    QStringList roots;
+    const QString app = QCoreApplication::applicationDirPath();
+    roots << app + "/plugins" << app + "/../share/lumen/plugins";
+#ifdef LUMEN_SOURCE_PLUGIN_DIR
+    roots << QString::fromUtf8(LUMEN_SOURCE_PLUGIN_DIR);
+#endif
+    roots.removeDuplicates();
+    QDir().mkpath(m_userDir);
+    int copied = 0;
+    QStringList errors;
+    std::function<bool(const QString&, const QString&)> copyTree = [&](const QString& from, const QString& to) {
+        if (!QDir().mkpath(to)) return false;
+        const QDir d(from);
+        for (const QFileInfo& e : d.entryInfoList(QDir::AllEntries | QDir::NoDotAndDotDot | QDir::Hidden)) {
+            const QString dest = QDir(to).filePath(e.fileName());
+            if (e.isSymLink()) return false;
+            if (e.isDir()) { if (!copyTree(e.absoluteFilePath(), dest)) return false; }
+            else if (!QFile::copy(e.absoluteFilePath(), dest)) return false;
+        }
+        return true;
+    };
+    QSet<QString> seen;
+    for (const QString& root : std::as_const(roots)) {
+        const QDir d(root);
+        for (const QString& sub : d.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name)) {
+            const QString source = d.filePath(sub);
+            QFile manifest(QDir(source).filePath("plugin.json"));
+            if (!manifest.open(QIODevice::ReadOnly)) continue;
+            const QString id = QJsonDocument::fromJson(manifest.readAll()).object().value("id").toString();
+            if (id.isEmpty() || seen.contains(id)) continue;
+            seen.insert(id);
+            const QString dest = QDir(m_userDir).filePath(id);
+            if (QFileInfo::exists(QDir(dest).filePath("plugin.json"))) continue;
+            if (QFileInfo::exists(dest) || !copyTree(source, dest)) {
+                QDir(dest).removeRecursively();
+                errors << id;
+            } else ++copied;
+        }
+    }
+    finishOnboarding();
+    if (copied > 0) rescan();
+    if (!errors.isEmpty()) return tr("Copied %1 official extensions; couldn't copy: %2").arg(copied).arg(errors.join(", "));
+    return copied ? tr("Copied %1 official extensions to %2.").arg(copied).arg(m_userDir)
+                   : tr("All official extensions are already in %1.").arg(m_userDir);
 }
 
 QString PluginManager::nameOf(const QString& id) const { return m_info.value(id).name; }

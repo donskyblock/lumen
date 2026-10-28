@@ -27,8 +27,8 @@ Item {
     height: Math.round(60 * Pal.dens)
     activeFocusOnTab: true
     opacity: missing ? 0.45 : 1
-    Keys.onReturnPressed: activated()
-    Keys.onSpacePressed: activated()
+    Keys.onReturnPressed: if (!missing) activated()
+    Keys.onSpacePressed: if (!missing) activated()
 
     function openMenu(mx, my) {
         var p = row.mapToItem(null, mx, my)

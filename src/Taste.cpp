@@ -1,6 +1,8 @@
 #include "Taste.h"
 #include "SongIndex.h"
+#include "SpotifyImport.h"
 #include "TextUtil.h"
+#include <QCryptographicHash>
 #include <QDate>
 #include <QDir>
 #include <QDateTime>
@@ -138,8 +140,21 @@ QHash<QString, Taste::Affinity> Taste::computeProfile() const
     };
     for (const auto& e : m_lib->stats()->events())
         if (const auto t = m_lib->trackByPath(e.path)) bump(t->artist, std::exp(-double(now - e.at) / tau));
-    for (const QString& p : m_playlists->likedPaths())
-        if (const auto t = m_lib->trackByPath(p)) bump(t->artist, m_params.value("likes"));
+    for (const QVariant& value : m_playlists->items(m_playlists->likedId())) {
+        const QVariantMap item = value.toMap();
+        if (const auto t = m_lib->trackByPath(item.value("path").toString())) bump(t->artist, m_params.value("likes"));
+        else if (!item.value("artist").toString().isEmpty()) bump(item.value("artist").toString(), m_params.value("likes"));
+    }
+    for (const QVariant& listValue : m_playlists->list()) {
+        const QVariantMap list = listValue.toMap();
+        if (!list.value("special").toString().isEmpty()) continue;
+        const QString id = list.value("id").toString();
+        for (const QVariant& itemValue : m_playlists->items(id)) {
+            const QVariantMap item = itemValue.toMap();
+            if (const auto t = m_lib->trackByPath(item.value("path").toString())) bump(t->artist, 0.2 * m_params.value("likes"));
+            else if (!item.value("artist").toString().isEmpty()) bump(item.value("artist").toString(), 0.2 * m_params.value("likes"));
+        }
+    }
     for (const Db::CatArtist& a : Db::get().savedCatArtists()) bump(a.name, 2.0);
     const double skipW = m_params.value("skips");
     if (skipW > 0)
@@ -804,4 +819,79 @@ void Taste::importFrom(const QString& source)
         });
     };
     (*m_importStep)();
+}
+
+void Taste::importSpotifyExport(const QString& source)
+{
+    setBusy(tr("Reading Spotify export locally…"));
+    const SpotifyImport::Result imported = SpotifyImport::readFile(localPath(source));
+    if (!imported.error.isEmpty()) {
+        setBusy({});
+        emit importFailed(imported.error);
+        return;
+    }
+    struct ImportedList { QString name; bool liked = false; QVector<Db::PlItem> items; };
+    struct MatchTask { int list = 0, item = 0; SpotifyImport::Track source; };
+    struct ImportState {
+        QVector<ImportedList> lists;
+        QVector<MatchTask> tasks;
+        int next = 0, active = 0, matched = 0;
+    };
+    auto state = std::make_shared<ImportState>();
+    for (const SpotifyImport::Playlist& playlist : imported.playlists) {
+        ImportedList list{playlist.name, playlist.likedSongs, {}};
+        const int listIndex = state->lists.size();
+        for (int i = 0; i < playlist.tracks.size(); ++i) {
+            const SpotifyImport::Track& track = playlist.tracks[i];
+            if (track.title.trimmed().isEmpty()) continue;
+            const QByteArray identity = !track.uri.isEmpty()
+                ? track.uri.toUtf8()
+                : (track.title + QChar(0x1f) + track.artist + QChar(0x1f) + track.album + QChar(0x1f) + QString::number(i)).toUtf8();
+            const QString hash = QString::fromLatin1(QCryptographicHash::hash(identity, QCryptographicHash::Sha256).toHex());
+            const int itemIndex = list.items.size();
+            list.items.push_back({QStringLiteral("spotify-import://") + hash, track.title, track.artist, track.album, track.durationMs});
+            state->tasks.push_back({listIndex, itemIndex, track});
+        }
+        state->lists.push_back(std::move(list));
+    }
+
+    const int total = state->tasks.size();
+    auto finish = [this, state, total] {
+        int playlistCount = 0, likedCount = 0;
+        for (const ImportedList& list : std::as_const(state->lists)) {
+            if (list.items.isEmpty()) continue;
+            if (list.liked) likedCount += m_playlists->importExternal(QStringLiteral("Liked Songs"), list.items, true);
+            else if (m_playlists->importExternal(list.name, list.items, false) > 0) ++playlistCount;
+        }
+        refreshProfile();
+        setBusy({});
+        const int unmatched = total - state->matched;
+        QString summary = tr("Imported %1 playlists and added %2 songs to Liked Songs.").arg(playlistCount).arg(likedCount);
+        summary += tr(" Matched %1 of %2 tracks to online catalog entries; %3 could not be matched and remain unavailable.")
+                       .arg(state->matched).arg(total).arg(unmatched);
+        emit importFinished(summary);
+    };
+    auto pump = std::make_shared<std::function<void()>>();
+    std::weak_ptr<std::function<void()>> weakPump = pump;
+    *pump = [this, state, total, finish, weakPump] {
+        while (state->active < 4 && state->next < state->tasks.size()) {
+            const MatchTask task = state->tasks[state->next++];
+            ++state->active;
+            m_catalog->matchImportedTrack(task.source.title, task.source.artist, task.source.album, task.source.durationMs,
+                [this, state, total, finish, weakPump, task](const std::optional<Track>& match) {
+                    if (match) {
+                        state->lists[task.list].items[task.item] = {match->path, match->title, match->artist, match->album, match->durationMs};
+                        ++state->matched;
+                    }
+                    --state->active;
+                    const int completed = state->next - state->active;
+                    setBusy(tr("Matching imported tracks online (%1 of %2)…").arg(completed).arg(total));
+                    if (state->next == state->tasks.size() && state->active == 0) finish();
+                    else if (auto next = weakPump.lock()) (*next)();
+                });
+        }
+        if (state->tasks.isEmpty()) finish();
+    };
+    if (state->tasks.isEmpty()) finish();
+    else (*pump)();
 }

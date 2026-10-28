@@ -30,6 +30,32 @@ QString pickPicture(const QJsonObject& o)
     return {};
 }
 int typeRank(const QString& t) { return t == "album" ? 3 : t == "ep" ? 2 : t == "single" ? 1 : 0; }
+bool preferredFlag(bool candidate, bool current, bool preferExplicit)
+{
+    return candidate != current && candidate == preferExplicit;
+}
+
+QVector<QJsonObject> chooseAlbumVersions(const QJsonArray& input, bool preferExplicit)
+{
+    QVector<QJsonObject> albums;
+    for (const QJsonValue& v : input) albums.push_back(v.toObject());
+    auto key = [](const QJsonObject& o) {
+        const QJsonObject artist = o.value("artist").toObject();
+        const QString artistId = artist.value("id").toVariant().toString();
+        return foldText(o.value("title").toString()) + QChar(0x1f) + artistId + QChar(0x1f) + o.value("record_type").toString();
+    };
+    std::stable_sort(albums.begin(), albums.end(), [preferExplicit](const QJsonObject& a, const QJsonObject& b) {
+        return preferredFlag(a.value("explicit_lyrics").toBool(), b.value("explicit_lyrics").toBool(), preferExplicit);
+    });
+    QSet<QString> seen;
+    QVector<QJsonObject> out;
+    for (const QJsonObject& album : std::as_const(albums)) {
+        const QString k = key(album);
+        if (k.endsWith(QChar(0x1f))) { out.push_back(album); continue; }
+        if (!seen.contains(k)) { seen.insert(k); out.push_back(album); }
+    }
+    return out;
+}
 
 // Walks pages of a list endpoint one after another.
 struct Pager : std::enable_shared_from_this<Pager> {
@@ -57,11 +83,20 @@ struct Pager : std::enable_shared_from_this<Pager> {
 
 Catalog::Catalog(Library* lib, QObject* parent) : QObject(parent), m_lib(lib)
 {
+    m_preferExplicit = Db::get().kv("catalog.preferExplicit", "1") == "1";
     m_base = qEnvironmentVariable("LUMEN_DEEZER_URL", QStringLiteral("https://api.deezer.com"));
     while (m_base.endsWith('/')) m_base.chop(1);
     m_pump.setSingleShot(true);
     connect(&m_pump, &QTimer::timeout, this, &Catalog::pump);
     Db::get().cachePrune(14 * 86400);
+}
+
+void Catalog::setPreferExplicit(bool on)
+{
+    if (on == m_preferExplicit) return;
+    m_preferExplicit = on;
+    Db::get().setKv("catalog.preferExplicit", on ? "1" : "0");
+    emit preferExplicitChanged();
 }
 
 void Catalog::setOnline(bool on)
@@ -171,6 +206,8 @@ Track Catalog::toTrack(const QJsonObject& o, const QJsonObject& albumIn) const
     t.trackNo = o.value("track_position").toInt();
     t.discNo = o.value("disk_number").toInt();
     t.rank = o.value("rank").toInt();
+    t.explicitLyrics = o.contains("explicit_lyrics") ? o.value("explicit_lyrics").toBool()
+                                                       : album.value("explicit_lyrics").toBool();
     t.year = album.value("release_date").toString().left(4).toInt();
     t.codec = QStringLiteral("Stream");
     t.added = QDateTime::currentSecsSinceEpoch();
@@ -182,7 +219,27 @@ QVariantMap Catalog::trackMap(const Track& t) const
     return {{"path", t.path}, {"id", catalogId(t.path)}, {"title", t.title}, {"artist", t.artist}, {"artistId", t.artistId},
             {"album", t.album}, {"albumId", t.albumId}, {"trackNo", t.trackNo}, {"durationMs", t.durationMs},
             {"quality", QString()}, {"lossless", false}, {"cover", t.coverKey}, {"rank", t.rank}, {"year", t.year},
-            {"saved", m_lib->isSaved(t.path)}};
+            {"explicit", t.explicitLyrics}, {"saved", m_lib->isSaved(t.path)}};
+}
+
+QVector<Track> Catalog::chooseTrackVersions(const QVector<Track>& tracks) const
+{
+    QVector<Track> out;
+    QHash<QString, int> seen;
+    for (const Track& track : tracks) {
+        const QString k = normTitleKey(track.title) + QChar(0x1f) + variantTag(track.title) + QChar(0x1f)
+                        + (track.artistId.isEmpty() ? primaryArtistKey(track.artist) : track.artistId);
+        const auto it = seen.constFind(k);
+        if (k.startsWith(QChar(0x1f)) || it == seen.constEnd()) {
+            seen.insert(k, out.size());
+            out.push_back(track);
+            continue;
+        }
+        Track& current = out[*it];
+        if (preferredFlag(track.explicitLyrics, current.explicitLyrics, m_preferExplicit)
+            || (track.explicitLyrics == current.explicitLyrics && track.rank > current.rank)) current = track;
+    }
+    return out;
 }
 
 QVariantMap Catalog::artistMap(const QJsonObject& o) const
@@ -222,7 +279,7 @@ int Catalog::search(const QString& query)
         QVariantList songArtists, nameArtists;
         QVector<Track> ts;
         QSet<QString> artistIds;
-        for (const QJsonValue& v : std::as_const(st->albums)) albums << albumMap(v.toObject());
+        for (const QJsonObject& o : chooseAlbumVersions(st->albums, m_preferExplicit)) albums << albumMap(o);
         for (const QJsonValue& v : std::as_const(st->tracks)) {
             const QJsonObject o = v.toObject();
             ts.push_back(toTrack(o));
@@ -239,6 +296,7 @@ int Catalog::search(const QString& query)
                 Db::get().upsertCatArtist({id, a.value("name").toString(), m.value("picture").toString(), 0, false}, false);
             }
         }
+        ts = chooseTrackVersions(ts);
         for (const QJsonValue& v : std::as_const(st->artists)) {
             const QJsonObject o = v.toObject();
             const QString id = o.contains("id") ? idOf(o.value("id")) : QString();
@@ -281,6 +339,7 @@ void Catalog::loadArtist(const QString& id)
 
         QVector<Track> popular;
         for (const QJsonValue& v : std::as_const(st->top)) popular.push_back(toTrack(v.toObject()));
+        popular = chooseTrackVersions(popular);
         remember(popular);
         QVariantList pop;
         for (const Track& t : std::as_const(popular)) pop << trackMap(t);
@@ -288,8 +347,7 @@ void Catalog::loadArtist(const QString& id)
         struct A { QVariantMap m; QString date; int type; };
         QVector<A> all;
         QSet<QString> seen;
-        for (const QJsonValue& v : std::as_const(st->albums)) {
-            const QJsonObject o = v.toObject();
+        for (const QJsonObject& o : chooseAlbumVersions(st->albums, m_preferExplicit)) {
             const QVariantMap m = albumMap(o, name);
             const QString type = m.value("type").toString();
             const QString key = foldText(m.value("title").toString()) + QChar(0x1f) + type;
@@ -374,8 +432,9 @@ void Catalog::loadCharts()
             artists << artistMap(o);
             Db::get().upsertCatArtist({idOf(o.value("id")), o.value("name").toString(), pickPicture(o), 0, false}, false);
         }
-        for (const QJsonValue& v : std::as_const(st->albums)) albums << albumMap(v.toObject());
+        for (const QJsonObject& o : chooseAlbumVersions(st->albums, m_preferExplicit)) albums << albumMap(o);
         for (const QJsonValue& v : std::as_const(st->tracks)) ts.push_back(toTrack(v.toObject()));
+        ts = chooseTrackVersions(ts);
         remember(ts);
         for (const Track& t : std::as_const(ts)) tracks << trackMap(t);
         if (artists.isEmpty() && tracks.isEmpty()) return;
@@ -456,6 +515,7 @@ void Catalog::topTracks(const QString& id, std::function<void(const QVector<Trac
     get("/artist/" + id + "/top?limit=50", 86400, [this, cb](const QJsonObject& r, const QString&) {
         QVector<Track> out;
         for (const QJsonValue& v : r.value("data").toArray()) out.push_back(toTrack(v.toObject()));
+        out = chooseTrackVersions(out);
         remember(out);
         cb(out);
     });
@@ -470,7 +530,65 @@ void Catalog::findTrack(const QString& artist, const QString& title, std::functi
         for (const QJsonValue& v : r.value("data").toArray()) {
             const Track t = toTrack(v.toObject());
             if (normTitleKey(t.title) != wantTitle || primaryArtistKey(t.artist) != wantArtist) continue;
-            if (!best || t.rank > best->rank) best = t;
+            if (!best || preferredFlag(t.explicitLyrics, best->explicitLyrics, m_preferExplicit)
+                || (t.explicitLyrics == best->explicitLyrics && t.rank > best->rank)) best = t;
+        }
+        if (best) remember({*best});
+        cb(best);
+    });
+}
+
+void Catalog::matchImportedTrack(const QString& title, const QString& artist, const QString& album, qint64 durationMs,
+                                 std::function<void(const std::optional<Track>&)> cb)
+{
+    QString query;
+    if (!artist.trimmed().isEmpty()) query = QStringLiteral("artist:\"%1\" ").arg(artist.trimmed());
+    query += QStringLiteral("track:\"%1\"").arg(title.trimmed());
+    get("/search?limit=25&q=" + QString::fromLatin1(QUrl::toPercentEncoding(query)), 604800,
+        [this, cb = std::move(cb), title, artist, album, durationMs](const QJsonObject& r, const QString&) {
+        const QString wantedTitle = normTitleKey(title);
+        const QString wantedArtist = primaryArtistKey(artist);
+        const QString wantedAlbum = foldText(album).simplified();
+        if (wantedTitle.isEmpty()) { cb(std::nullopt); return; }
+        std::optional<Track> best;
+        double bestScore = -1.0;
+        for (const QJsonValue& value : r.value("data").toArray()) {
+            const Track candidate = toTrack(value.toObject());
+            const QString candidateTitle = normTitleKey(candidate.title);
+            const int titleLength = int(std::max(wantedTitle.size(), candidateTitle.size()));
+            const int titleDistance = boundedEditDistance(wantedTitle, candidateTitle, std::max(1, titleLength / 7));
+            const double titleScore = titleLength ? 1.0 - double(titleDistance) / titleLength : 0.0;
+            if (titleDistance > std::max(1, titleLength / 7) || titleScore < 0.82) continue;
+
+            const QString candidateArtist = primaryArtistKey(candidate.artist);
+            double artistScore = 1.0;
+            if (!wantedArtist.isEmpty()) {
+                if (wantedArtist == candidateArtist) artistScore = 1.0;
+                else if (wantedArtist.contains(candidateArtist) || candidateArtist.contains(wantedArtist)) artistScore = 0.82;
+                else {
+                    const int length = std::max(wantedArtist.size(), candidateArtist.size());
+                    const int distance = boundedEditDistance(wantedArtist, candidateArtist, std::max(1, int(length / 5)));
+                    artistScore = length ? 1.0 - double(distance) / length : 0.0;
+                }
+                if (artistScore < 0.78) continue;
+            }
+
+            double score = titleScore * 0.62 + artistScore * 0.30;
+            if (!wantedAlbum.isEmpty()) {
+                const QString candidateAlbum = foldText(candidate.album).simplified();
+                if (candidateAlbum == wantedAlbum) score += 0.06;
+                else if (candidateAlbum.contains(wantedAlbum) || wantedAlbum.contains(candidateAlbum)) score += 0.035;
+            }
+            if (durationMs > 0 && candidate.durationMs > 0) {
+                const qint64 delta = std::abs(durationMs - candidate.durationMs);
+                if (delta > std::max<qint64>(20000, durationMs / 5)) continue;
+                score += 0.02 * (1.0 - std::min(1.0, double(delta) / 20000.0));
+            }
+            if (score > bestScore || (score == bestScore && best && preferredFlag(candidate.explicitLyrics, best->explicitLyrics, m_preferExplicit))
+                || (score == bestScore && best && candidate.explicitLyrics == best->explicitLyrics && candidate.rank > best->rank)) {
+                best = candidate;
+                bestScore = score;
+            }
         }
         if (best) remember({*best});
         cb(best);
@@ -505,15 +623,8 @@ void Catalog::collectArtistTracks(const QString& artistId, std::function<void(co
             struct Cand { Track t; int type; };
             struct State { QHash<QString, Cand> best; int left = 0, total = 0; };
             auto st = std::make_shared<State>();
-            QSet<QString> seenAlbum;
             QVector<QJsonObject> use;
-            for (const QJsonValue& v : albums) {
-                const QJsonObject o = v.toObject();
-                const QString key = foldText(o.value("title").toString()) + QChar(0x1f) + o.value("record_type").toString();
-                if (seenAlbum.contains(key)) continue;
-                seenAlbum.insert(key);
-                use.push_back(o);
-            }
+            for (const QJsonObject& o : chooseAlbumVersions(albums, m_preferExplicit)) use.push_back(o);
             st->left = st->total = int(use.size());
             for (const QJsonObject& al : std::as_const(use)) {
                 const int type = typeRank(al.value("record_type").toString());
@@ -527,7 +638,9 @@ void Catalog::collectArtistTracks(const QString& artistId, std::function<void(co
                         const QString key = normTitleKey(t.title) + QChar(0x1f) + variantTag(t.title) + QChar(0x1f) + t.artistId;
                         auto it = st->best.find(key);
                         if (it == st->best.end()) st->best.insert(key, {t, type});
-                        else if (type > it->type || (type == it->type && t.rank > it->t.rank)) *it = {t, type};
+                        else if (preferredFlag(t.explicitLyrics, it->t.explicitLyrics, m_preferExplicit)
+                                 || (t.explicitLyrics == it->t.explicitLyrics
+                                     && (type > it->type || (type == it->type && t.rank > it->t.rank)))) *it = {t, type};
                     }
                     if (progress) progress(1.0 - double(st->left - 1) / std::max(1, st->total));
                     if (--st->left > 0) return;

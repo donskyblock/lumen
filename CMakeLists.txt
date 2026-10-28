@@ -10,9 +10,16 @@ endif()
 
 find_package(Qt6 6.4 REQUIRED COMPONENTS Quick Concurrent Network)
 find_package(Threads REQUIRED)
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(SQLITE REQUIRED IMPORTED_TARGET sqlite3)
-pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET libavformat libavcodec libswresample libavutil)
+find_package(ZLIB REQUIRED)
+if(WIN32)
+  # vcpkg supplies these packages when using scripts/setup.ps1.
+  find_package(unofficial-sqlite3 CONFIG REQUIRED)
+  find_package(FFMPEG REQUIRED)
+else()
+  find_package(PkgConfig REQUIRED)
+  pkg_check_modules(SQLITE REQUIRED IMPORTED_TARGET sqlite3)
+  pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET libavformat libavcodec libswresample libavutil)
+endif()
 
 add_executable(lumen
   src/main.cpp
@@ -33,6 +40,7 @@ add_executable(lumen
   src/Presence.cpp         src/Presence.h
   src/SongIndex.cpp        src/SongIndex.h
   src/Taste.cpp            src/Taste.h
+  src/SpotifyImport.cpp    src/SpotifyImport.h
   src/PluginManager.cpp    src/PluginManager.h
   src/Lyrics.cpp           src/Lyrics.h
   src/Marketplace.cpp      src/Marketplace.h
@@ -48,9 +56,17 @@ file(GLOB QML_FILES RELATIVE ${CMAKE_SOURCE_DIR} CONFIGURE_DEPENDS qml/*.qml qml
 qt_add_resources(lumen "qml" PREFIX "/" FILES ${QML_FILES})
 
 target_include_directories(lumen PRIVATE third_party)
-target_link_libraries(lumen PRIVATE Qt6::Quick Qt6::Concurrent Qt6::Network PkgConfig::FFMPEG PkgConfig::SQLITE Threads::Threads ${CMAKE_DL_LIBS} m)
-target_compile_options(lumen PRIVATE -Wall -Wextra -Wno-unused-parameter)
-set_source_files_properties(src/miniaudio_impl.cpp PROPERTIES COMPILE_OPTIONS "-w")
+if(WIN32)
+  target_include_directories(lumen PRIVATE ${FFMPEG_INCLUDE_DIRS})
+  target_link_directories(lumen PRIVATE ${FFMPEG_LIBRARY_DIRS})
+  target_link_libraries(lumen PRIVATE Qt6::Quick Qt6::Concurrent Qt6::Network ${FFMPEG_LIBRARIES} unofficial::sqlite3::sqlite3 Threads::Threads ZLIB::ZLIB)
+  target_compile_options(lumen PRIVATE /W4 /wd4100)
+  set_source_files_properties(src/miniaudio_impl.cpp PROPERTIES COMPILE_OPTIONS "/w")
+else()
+  target_link_libraries(lumen PRIVATE Qt6::Quick Qt6::Concurrent Qt6::Network PkgConfig::FFMPEG PkgConfig::SQLITE Threads::Threads ZLIB::ZLIB ${CMAKE_DL_LIBS} m)
+  target_compile_options(lumen PRIVATE -Wall -Wextra -Wno-unused-parameter)
+  set_source_files_properties(src/miniaudio_impl.cpp PROPERTIES COMPILE_OPTIONS "-w")
+endif()
 
 include(CheckIPOSupported)
 check_ipo_supported(RESULT ipo_ok OUTPUT ipo_msg)
@@ -60,6 +76,6 @@ endif()
 
 # Bundled (official) extensions: next to the binary for dev builds, share/ when installed.
 add_custom_command(TARGET lumen POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/plugins ${CMAKE_BINARY_DIR}/plugins)
+  COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/plugins $<TARGET_FILE_DIR:lumen>/plugins)
 install(TARGETS lumen RUNTIME DESTINATION bin)
 install(DIRECTORY plugins/ DESTINATION share/lumen/plugins USE_SOURCE_PERMISSIONS)

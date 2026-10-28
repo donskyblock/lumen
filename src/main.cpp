@@ -249,8 +249,10 @@ int main(int argc, char** argv)
         });
         if (qEnvironmentVariableIsSet("LUMEN_SEEK")) QTimer::singleShot(3500, [&] { player.seek(qEnvironmentVariableIntValue("LUMEN_SEEK")); });
         QTimer::singleShot(qEnvironmentVariableIntValue("LUMEN_DELAY") ? qEnvironmentVariableIntValue("LUMEN_DELAY") : 5000, [&] {
+#ifndef Q_OS_WIN
             QFile st("/proc/self/status"); st.open(QIODevice::ReadOnly);
             for (const QByteArray& l : st.readAll().split('\n')) if (l.startsWith("VmRSS") || l.startsWith("RssAnon")) qInfo("%s", l.constData());
+#endif
             { QStringList ids; for (const QVariant& v : plugins.list()) ids << v.toMap().value("id").toString(); qInfo("extensions=%s | market: %s", qPrintable(ids.join(',')), qPrintable(market.message())); }
             qInfo("library=%d folders=%lld", library.trackCount(), (long long)library.folders().size());
             qInfo("catalog: online=%d saved artists=%lld resolving=%d error='%s' via=%s preview=%d", int(catalog.online()), (long long)Db::get().savedCatArtists().size(), int(player.resolving()), qPrintable(player.error()), qPrintable(player.via()), int(player.isPreview()));

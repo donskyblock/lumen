@@ -25,11 +25,33 @@ Column {
         }
     }
 
+    function pickSpotifyExport() {
+        try {
+            var d = Qt.createQmlObject('import QtQuick.Dialogs\nFileDialog { nameFilters: ["Spotify export (*.zip *.json *.csv)", "ZIP archive (*.zip)", "JSON (*.json)", "CSV (*.csv)"]; fileMode: FileDialog.OpenFile }', root)
+            d.accepted.connect(function () { Taste.importSpotifyExport(d.selectedFile.toString()) })
+            d.open()
+        } catch (e) {
+            root.note = "The file picker isn't available here. Extract the Spotify Account data ZIP and select a Playlist*.json or YourLibrary.json file."
+        }
+    }
+
     Text { text: "Your algorithm"; font.pixelSize: Math.round(20 * Pal.fs); font.weight: Font.DemiBold; color: Pal.onSurface }
     Text {
         width: parent.width; wrapMode: Text.WordWrap
         text: "Lumen learns from what you play, like and skip, and from artists you add to your library. It builds your radio, Discover and mixes from that. The knobs below steer it. Export saves all of it, plus your playlists and saved artists, into one file you can import on another device."
         font.pixelSize: Math.round(14 * Pal.fs); color: Pal.onSurfaceVariant
+    }
+    Text { text: "Import Spotify playlists"; font.pixelSize: Math.round(16 * Pal.fs); font.weight: Font.DemiBold; color: Pal.onSurface }
+    Text {
+        width: parent.width; wrapMode: Text.WordWrap
+        text: "Choose Spotify's Account data export for the no-third-party route (request Account data only to keep the ZIP smaller), or use TuneMyMusic to export playlists and liked songs as CSV. Its free export is limited to 500 tracks. Lumen searches its online catalog for the closest title, artist, album, and duration match; matched tracks become online entries. Liked/favorite-song exports merge into your Lumen Liked Songs. Track metadata is sent to the catalog for matching; Lumen never asks for your Spotify password."
+        font.pixelSize: Math.round(13 * Pal.fs); color: Pal.onSurfaceVariant
+    }
+    Row {
+        spacing: 8
+        Pill { text: "Spotify data export"; filled: false; onClicked: Qt.openUrlExternally("https://www.spotify.com/account/privacy/") }
+        Pill { text: "TuneMyMusic export"; filled: false; onClicked: Qt.openUrlExternally("https://www.tunemymusic.com/transfer/spotify-to-file") }
+        Pill { icon: "folder_open"; text: "Import file…"; onClicked: root.pickSpotifyExport() }
     }
 
     // what it has learned
