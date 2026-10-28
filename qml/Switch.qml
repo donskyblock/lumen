@@ -15,16 +15,16 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        radius: height / 2
+        radius: height * Pal.pf
         color: root.checked ? Pal.primary : Pal.surfaceHighest
         border.width: root.checked ? 0 : 2
         border.color: Pal.outline
-        Behavior on color { ColorAnimation { duration: 140 } }
+        Behavior on color { ColorAnimation { duration: Pal.motion ? 140 : 0 } }
     }
     Rectangle {
         anchors.fill: parent
         anchors.margins: -3
-        radius: height / 2
+        radius: height * Pal.pf
         color: "transparent"
         border.width: 2
         border.color: Pal.primary
@@ -38,8 +38,8 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         x: root.checked ? parent.width - width - 4 : 8
         color: root.checked ? Pal.onPrimary : Pal.outline
-        Behavior on x { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-        Behavior on width { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+        Behavior on x { NumberAnimation { duration: Pal.motion ? 180 : 0; easing.type: Easing.OutCubic } }
+        Behavior on width { NumberAnimation { duration: Pal.motion ? 180 : 0; easing.type: Easing.OutCubic } }
         Icon {
             anchors.centerIn: parent
             visible: root.checked

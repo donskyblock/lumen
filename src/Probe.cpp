@@ -89,6 +89,7 @@ std::optional<Track> probeFile(const QString& path)
     t.album       = tag(fmt->metadata, st->metadata, "album");
     t.trackNo     = tag(fmt->metadata, st->metadata, "track").section('/', 0, 0).toInt();
     t.discNo      = tag(fmt->metadata, st->metadata, "disc").section('/', 0, 0).toInt();
+    t.genre       = tag(fmt->metadata, st->metadata, "genre");
     QString date  = tag(fmt->metadata, st->metadata, "date");
     if (date.isEmpty()) date = tag(fmt->metadata, st->metadata, "year");
     t.year        = date.left(4).toInt();

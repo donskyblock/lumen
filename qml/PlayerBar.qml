@@ -8,9 +8,9 @@ Rectangle {
     signal togglePanel()
     signal toggleLyrics()
 
-    radius: 28
+    radius: 28 * Pal.rs
     color: Pal.surfaceLow
-    Behavior on color { ColorAnimation { duration: 500 } }
+    Behavior on color { ColorAnimation { duration: Pal.motion ? 500 : 0 } }
 
     // ---- now playing (left) ----
     Item {
@@ -29,17 +29,28 @@ Rectangle {
             url: Player.coverUrl
             radiusPct: 20
         }
+        IconButton {
+            id: heartBtn
+            readonly property bool liked: Playlists.revision >= 0 && Playlists.isLiked(Player.currentPath)
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            width: 38; height: 38
+            visible: Player.currentPath !== "" && Player.currentPath.indexOf("://") < 0
+            icon: liked ? "favorite" : "favorite_border"; iconSize: 21
+            active: liked
+            onClicked: Playlists.toggleLike(Player.currentPath)
+        }
         Column {
             anchors.left: art.right
             anchors.leftMargin: 14
-            anchors.right: parent.right
+            anchors.right: heartBtn.visible ? heartBtn.left : parent.right
             anchors.verticalCenter: parent.verticalCenter
             spacing: 2
             Text {
                 width: parent.width
                 text: Player.title
                 elide: Text.ElideRight
-                font.pixelSize: 15
+                font.pixelSize: Math.round(15 * Pal.fs)
                 font.weight: Font.DemiBold
                 color: Pal.onSurface
             }
@@ -47,7 +58,7 @@ Rectangle {
                 width: parent.width
                 text: Player.artist
                 elide: Text.ElideRight
-                font.pixelSize: 13
+                font.pixelSize: Math.round(13 * Pal.fs)
                 color: Pal.onSurfaceVariant
             }
         }
@@ -86,9 +97,9 @@ Rectangle {
                 Rectangle {
                     id: playShape
                     anchors.fill: parent
-                    radius: Player.playing ? 18 : 28
+                    radius: (Player.playing ? 18 : 28) * Pal.rs
                     color: Pal.primary
-                    Behavior on radius { NumberAnimation { duration: 260; easing.type: Easing.OutBack; easing.overshoot: 1.4 } }
+                    Behavior on radius { NumberAnimation { duration: Pal.motion ? 260 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.4 } }
                 }
                 Rectangle {
                     anchors.fill: parent
@@ -121,6 +132,14 @@ Rectangle {
                 active: Player.repeat > 0
                 onClicked: Player.cycleRepeat()
             }
+            IconButton {
+                anchors.verticalCenter: parent.verticalCenter
+                icon: "autoplay"
+                active: Player.autoplay
+                opacity: Player.autoplayBusy ? 0.55 : 1
+                Accessible.name: qsTr("Autoplay: keep playing similar songs")
+                onClicked: Player.setAutoplay(!Player.autoplay)
+            }
         }
         Item {
             width: parent.width
@@ -132,7 +151,7 @@ Rectangle {
                 width: 44
                 horizontalAlignment: Text.AlignRight
                 text: U.fmt(Player.position)
-                font.pixelSize: 12
+                font.pixelSize: Math.round(12 * Pal.fs)
                 color: Pal.onSurfaceVariant
             }
             Scrubber {
@@ -151,7 +170,7 @@ Rectangle {
                 anchors.verticalCenter: parent.verticalCenter
                 width: 44
                 text: U.fmt(Player.duration)
-                font.pixelSize: 12
+                font.pixelSize: Math.round(12 * Pal.fs)
                 color: Pal.onSurfaceVariant
             }
         }

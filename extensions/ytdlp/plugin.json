@@ -1,11 +1,66 @@
 {
   "id": "ytdlp",
   "name": "yt-dlp: YouTube + SoundCloud",
-  "version": "0.1.0",
-  "description": "Search and stream YouTube and SoundCloud through your own yt-dlp. Audio is lossy (Opus/AAC/MP3).",
+  "version": "0.4.0",
+  "description": "Search and stream YouTube and SoundCloud through your own yt-dlp. Audio is lossy (Opus/AAC/MP3). Also suggests what to play next.",
   "author": "Lumen",
-  "exec": ["python3", "-S", "main.py"],
-  "capabilities": ["source"],
+  "exec": [
+    "python3",
+    "-S",
+    "main.py"
+  ],
+  "capabilities": [
+    "source",
+    "recommend"
+  ],
   "memoryLimitMB": 64,
-  "setup": "Install yt-dlp (Arch: pacman -S yt-dlp) and keep it updated. Using it may break a site's terms of service; that's your call."
+  "setup": "Install yt-dlp (Arch: pacman -S yt-dlp) and keep it updated. Using it may break a site's terms of service; that's your call. Optional sign-in: YouTube sometimes refuses anonymous downloads (\"sign in to confirm you're not a bot\"). Signing in is at your own risk: YouTube can restrict an account that is used with downloaders, so consider a separate account.",
+  "options": [
+    {
+      "key": "cookiesBrowser",
+      "label": "Sign in to YouTube using your browser",
+      "type": "choice",
+      "choices": [
+        {
+          "value": "",
+          "label": "Not signed in"
+        },
+        {
+          "value": "firefox",
+          "label": "Firefox"
+        },
+        {
+          "value": "chrome",
+          "label": "Chrome"
+        },
+        {
+          "value": "chromium",
+          "label": "Chromium"
+        },
+        {
+          "value": "brave",
+          "label": "Brave"
+        },
+        {
+          "value": "edge",
+          "label": "Edge"
+        },
+        {
+          "value": "vivaldi",
+          "label": "Vivaldi"
+        },
+        {
+          "value": "opera",
+          "label": "Opera"
+        }
+      ],
+      "hint": "Pick the browser you are signed in to YouTube with. yt-dlp reads that browser's YouTube login on this computer when it needs it; Lumen never sees or stores it. Signing in lets more songs play, and adds your own YouTube recommendations to Up Next."
+    },
+    {
+      "key": "cookiesFile",
+      "label": "...or a cookies.txt file",
+      "type": "text",
+      "hint": "Path to a cookies.txt exported from your browser. Used instead of the browser above when set."
+    }
+  ]
 }

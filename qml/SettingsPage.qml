@@ -33,29 +33,50 @@ Item {
             width: scroller.width - 56
             spacing: 10
 
+            AppearanceSection { width: parent.width }
+            Item { width: 1; height: 18 }
+
+            // ================= Online catalog + algorithm =================
+            Text { text: "Online music"; font.pixelSize: Math.round(20 * Pal.fs); font.weight: Font.DemiBold; color: Pal.onSurface }
+            Text {
+                width: parent.width; wrapMode: Text.WordWrap
+                text: Catalog.online ? "Search any artist to browse their songs and albums. Songs start playing right away."
+                                     : "Can't reach the online catalog right now. Your own library still works."
+                font.pixelSize: Math.round(14 * Pal.fs); color: Catalog.online ? Pal.onSurfaceVariant : Pal.error
+            }
+            Text {
+                width: parent.width; wrapMode: Text.WordWrap
+                text: Resolver.hasFullSource ? "Full-length playback from: " + Resolver.fullSources.join(", ") + ". Songs you own as files always play from the file."
+                                              : "Without a full-length source, online songs play as 30-second previews. Songs you also have as files in your library play in full from the file. You can switch on a source extension under Extensions below."
+                font.pixelSize: Math.round(13 * Pal.fs); color: Pal.outline
+            }
+            Item { width: 1; height: 8 }
+            AlgorithmSection { width: parent.width }
+            Item { width: 1; height: 18 }
+
             // ================= Library =================
-            Text { text: "Library folders"; font.pixelSize: 20; font.weight: Font.DemiBold; color: Pal.onSurface }
+            Text { text: "Library folders"; font.pixelSize: Math.round(20 * Pal.fs); font.weight: Font.DemiBold; color: Pal.onSurface }
             Text {
                 width: parent.width; wrapMode: Text.WordWrap
                 text: "Lumen reads these folders, including subfolders, and remembers what it found. Only new or changed files are read on later starts."
-                font.pixelSize: 14; color: Pal.onSurfaceVariant
+                font.pixelSize: Math.round(14 * Pal.fs); color: Pal.onSurfaceVariant
             }
 
             Repeater {
                 model: Library.folders
                 delegate: Rectangle {
-                    width: col.width; height: 64; radius: 20; color: Pal.surfaceHigh
-                    Icon { id: fi; x: 18; anchors.verticalCenter: parent.verticalCenter; name: "folder"; color: modelData.exists ? Pal.primary : "#ffb4ab" }
+                    width: col.width; height: 64; radius: 20 * Pal.rs; color: Pal.surfaceHigh
+                    Icon { id: fi; x: 18; anchors.verticalCenter: parent.verticalCenter; name: "folder"; color: modelData.exists ? Pal.primary : Pal.error }
                     Column {
                         anchors.left: fi.right; anchors.leftMargin: 14
                         anchors.right: del.left; anchors.rightMargin: 12
                         anchors.verticalCenter: parent.verticalCenter
-                        Text { width: parent.width; text: modelData.path; elide: Text.ElideMiddle; font.pixelSize: 14; font.weight: Font.Medium; color: Pal.onSurface }
+                        Text { width: parent.width; text: modelData.path; elide: Text.ElideMiddle; font.pixelSize: Math.round(14 * Pal.fs); font.weight: Font.Medium; color: Pal.onSurface }
                         Text {
                             width: parent.width
                             text: !modelData.exists ? "Folder not found (is the drive mounted?)"
                                   : modelData.count + (modelData.count === 1 ? " song" : " songs")
-                            font.pixelSize: 13; color: modelData.exists ? Pal.onSurfaceVariant : "#ffb4ab"
+                            font.pixelSize: Math.round(13 * Pal.fs); color: modelData.exists ? Pal.onSurfaceVariant : Pal.error
                         }
                     }
                     IconButton {
@@ -68,7 +89,7 @@ Item {
             }
             Text {
                 visible: Library.folders.length === 0
-                text: "No folders yet."; font.pixelSize: 14; color: Pal.onSurfaceVariant
+                text: "No folders yet."; font.pixelSize: Math.round(14 * Pal.fs); color: Pal.onSurfaceVariant
             }
 
             Row {
@@ -76,13 +97,13 @@ Item {
                 spacing: 8
                 Rectangle {
                     width: parent.width - addBtn.width - browseBtn.width - 16
-                    height: 48; radius: 24; color: Pal.surfaceHigh
+                    height: 48; radius: 24 * Pal.rs; color: Pal.surfaceHigh
                     border.width: pathInput.activeFocus ? 2 : 0; border.color: Pal.primary
                     TextInput {
                         id: pathInput
                         anchors.fill: parent; anchors.leftMargin: 20; anchors.rightMargin: 20
                         verticalAlignment: TextInput.AlignVCenter
-                        font.pixelSize: 15; color: Pal.onSurface; clip: true; selectByMouse: true
+                        font.pixelSize: Math.round(15 * Pal.fs); color: Pal.onSurface; clip: true; selectByMouse: true
                         Accessible.name: "Folder path"
                         onAccepted: root.addPath(text)
                     }
@@ -90,7 +111,7 @@ Item {
                         anchors.fill: pathInput; verticalAlignment: Text.AlignVCenter
                         visible: pathInput.text === ""
                         text: "Paste a folder path, e.g. ~/Music"
-                        font.pixelSize: 15; color: Pal.onSurfaceVariant
+                        font.pixelSize: Math.round(15 * Pal.fs); color: Pal.onSurfaceVariant
                     }
                 }
                 Pill { id: browseBtn; icon: "folder_open"; text: "Browse"; filled: false; onClicked: root.browse() }
@@ -99,24 +120,24 @@ Item {
             Text {
                 width: parent.width; wrapMode: Text.WordWrap
                 visible: root.folderMsg !== ""
-                text: root.folderMsg; font.pixelSize: 13; color: "#ffb4ab"
+                text: root.folderMsg; font.pixelSize: Math.round(13 * Pal.fs); color: Pal.error
             }
             Row {
                 spacing: 12
                 Pill { icon: "refresh"; text: Library.scanning ? "Scanning\u2026 " + Library.scanned : "Rescan now"; filled: false
                        enabled: !Library.scanning; opacity: enabled ? 1 : 0.6; onClicked: Library.rescan() }
                 Text { anchors.verticalCenter: parent.verticalCenter; text: "You can also drop a folder onto the window."
-                       font.pixelSize: 13; color: Pal.onSurfaceVariant }
+                       font.pixelSize: Math.round(13 * Pal.fs); color: Pal.onSurfaceVariant }
             }
 
             Item { width: 1; height: 18 }
 
             // ================= Extensions =================
-            Text { text: "Extensions"; font.pixelSize: 20; font.weight: Font.DemiBold; color: Pal.onSurface }
+            Text { text: "Extensions"; font.pixelSize: Math.round(20 * Pal.fs); font.weight: Font.DemiBold; color: Pal.onSurface }
             Text {
                 width: parent.width; wrapMode: Text.WordWrap
                 text: "Extensions add lyrics and online sources. Each one runs as its own small process that starts when needed and stops when idle. Official extensions are held to 20 MB of memory."
-                font.pixelSize: 14; color: Pal.onSurfaceVariant
+                font.pixelSize: Math.round(14 * Pal.fs); color: Pal.onSurfaceVariant
             }
 
             Repeater {
@@ -124,14 +145,15 @@ Item {
                 delegate: Rectangle {
                     id: card
                     property bool confirmRemove: false
+                    readonly property string pid: modelData.id
                     width: col.width
                     height: cardCol.height + 36
-                    radius: 24
+                    radius: 24 * Pal.rs
                     color: Pal.surfaceHigh
 
                     Rectangle {
                         id: badge
-                        x: 18; y: 18; width: 44; height: 44; radius: 16
+                        x: 18; y: 18; width: 44; height: 44; radius: 16 * Pal.rs
                         color: modelData.enabled ? Pal.primaryContainer : Pal.surfaceHighest
                         Icon { anchors.centerIn: parent; name: "extension"; size: 24
                                color: modelData.enabled ? Pal.onPrimaryContainer : Pal.onSurfaceVariant }
@@ -144,13 +166,13 @@ Item {
                         spacing: 6
                         Row {
                             spacing: 8
-                            Text { text: modelData.name; font.pixelSize: 16; font.weight: Font.DemiBold; color: Pal.onSurface }
-                            Text { anchors.baseline: parent.children[0].baseline; text: modelData.version; font.pixelSize: 13; color: Pal.onSurfaceVariant }
+                            Text { text: modelData.name; font.pixelSize: Math.round(16 * Pal.fs); font.weight: Font.DemiBold; color: Pal.onSurface }
+                            Text { anchors.baseline: parent.children[0].baseline; text: modelData.version; font.pixelSize: Math.round(13 * Pal.fs); color: Pal.onSurfaceVariant }
                         }
                         Text {
                             width: parent.width; wrapMode: Text.WordWrap
                             visible: modelData.description !== ""
-                            text: modelData.description; font.pixelSize: 13; color: Pal.onSurfaceVariant
+                            text: modelData.description; font.pixelSize: Math.round(13 * Pal.fs); color: Pal.onSurfaceVariant
                         }
                         Flow {
                             width: parent.width; spacing: 6
@@ -161,17 +183,61 @@ Item {
                             width: parent.width; wrapMode: Text.WordWrap
                             visible: !modelData.official
                             text: "Runs with your permissions. Use at your own risk; it may need setup and some knowledge."
-                            font.pixelSize: 12; color: Pal.onSurfaceVariant
+                            font.pixelSize: Math.round(12 * Pal.fs); color: Pal.onSurfaceVariant
                         }
                         Text {
                             width: parent.width; wrapMode: Text.WordWrap
                             visible: modelData.setup !== ""
-                            text: "Setup: " + modelData.setup; font.pixelSize: 12; color: Pal.outline
+                            text: "Setup: " + modelData.setup; font.pixelSize: Math.round(12 * Pal.fs); color: Pal.outline
+                        }
+                        Repeater {
+                            model: modelData.options || []
+                            delegate: Column {
+                                id: optCol
+                                width: cardCol.width
+                                spacing: 6
+                                readonly property var opt: modelData
+                                Text { text: optCol.opt.label; font.pixelSize: Math.round(13 * Pal.fs); font.weight: Font.Medium; color: Pal.onSurface }
+                                Flow {
+                                    visible: optCol.opt.type === "choice"
+                                    width: parent.width; spacing: 6
+                                    Repeater {
+                                        model: optCol.opt.choices
+                                        delegate: FilterChip {
+                                            text: modelData.label
+                                            checked: optCol.opt.value === modelData.value
+                                            onClicked: Plugins.setOption(card.pid, optCol.opt.key, modelData.value)
+                                        }
+                                    }
+                                }
+                                Rectangle {
+                                    visible: optCol.opt.type !== "choice"
+                                    width: parent.width; height: 40; radius: 20 * Pal.rs
+                                    color: Pal.surfaceHighest
+                                    border.width: optInput.activeFocus ? 2 : 0
+                                    border.color: Pal.primary
+                                    TextInput {
+                                        id: optInput
+                                        anchors.fill: parent; anchors.leftMargin: 16; anchors.rightMargin: 16
+                                        verticalAlignment: TextInput.AlignVCenter
+                                        font.pixelSize: Math.round(13 * Pal.fs); color: Pal.onSurface
+                                        clip: true; selectByMouse: true
+                                        text: optCol.opt.value
+                                        Accessible.name: optCol.opt.label
+                                        onEditingFinished: if (text !== optCol.opt.value) Plugins.setOption(card.pid, optCol.opt.key, text)
+                                    }
+                                }
+                                Text {
+                                    width: parent.width; wrapMode: Text.WordWrap
+                                    visible: (optCol.opt.hint || "") !== ""
+                                    text: optCol.opt.hint; font.pixelSize: Math.round(12 * Pal.fs); color: Pal.outline
+                                }
+                            }
                         }
                         Row {
                             spacing: 8
                             visible: card.confirmRemove
-                            Text { anchors.verticalCenter: parent.verticalCenter; text: "Remove this extension?"; font.pixelSize: 13; color: Pal.onSurface }
+                            Text { anchors.verticalCenter: parent.verticalCenter; text: "Remove this extension?"; font.pixelSize: Math.round(13 * Pal.fs); color: Pal.onSurface }
                             Pill { implicitHeight: 36; text: "Remove"; onClicked: Plugins.uninstall(modelData.id) }
                             Pill { implicitHeight: 36; text: "Keep"; filled: false; onClicked: card.confirmRemove = false }
                         }
@@ -179,7 +245,7 @@ Item {
                             width: parent.width; wrapMode: Text.WordWrap
                             visible: modelData.enabled
                             text: modelData.status + (modelData.running ? "  \u2022  " + modelData.memMB.toFixed(1) + " of " + modelData.memLimit + " MB" : "")
-                            font.pixelSize: 12; color: Pal.outline
+                            font.pixelSize: Math.round(12 * Pal.fs); color: Pal.outline
                         }
                     }
                     Row {
@@ -197,31 +263,31 @@ Item {
             Text {
                 visible: Plugins.list.length === 0
                 width: parent.width; wrapMode: Text.WordWrap
-                text: "No extensions found."; font.pixelSize: 14; color: Pal.onSurfaceVariant
+                text: "No extensions found."; font.pixelSize: Math.round(14 * Pal.fs); color: Pal.onSurfaceVariant
             }
             Text {
                 width: parent.width; wrapMode: Text.WordWrap
                 text: "Order matters: lyrics providers are tried from the top down."
-                font.pixelSize: 12; color: Pal.outline
+                font.pixelSize: Math.round(12 * Pal.fs); color: Pal.outline
                 visible: Plugins.list.length > 1
             }
             Item { width: 1; height: 18 }
-            Text { text: "Get more extensions"; font.pixelSize: 20; font.weight: Font.DemiBold; color: Pal.onSurface }
+            Text { text: "Get more extensions"; font.pixelSize: Math.round(20 * Pal.fs); font.weight: Font.DemiBold; color: Pal.onSurface }
             Text {
                 width: parent.width; wrapMode: Text.WordWrap
                 text: "Extensions are listed in an index you choose. Each download is checked against the checksum in that index before it's unpacked, and nothing runs until you switch it on."
-                font.pixelSize: 14; color: Pal.onSurfaceVariant
+                font.pixelSize: Math.round(14 * Pal.fs); color: Pal.onSurfaceVariant
             }
             Row {
                 width: parent.width; spacing: 8
                 Rectangle {
-                    width: parent.width - browseStore.width - 8; height: 48; radius: 24; color: Pal.surfaceHigh
+                    width: parent.width - browseStore.width - 8; height: 48; radius: 24 * Pal.rs; color: Pal.surfaceHigh
                     border.width: indexInput.activeFocus ? 2 : 0; border.color: Pal.primary
                     TextInput {
                         id: indexInput
                         anchors.fill: parent; anchors.leftMargin: 20; anchors.rightMargin: 20
                         verticalAlignment: TextInput.AlignVCenter
-                        font.pixelSize: 14; color: Pal.onSurface; clip: true; selectByMouse: true
+                        font.pixelSize: Math.round(14 * Pal.fs); color: Pal.onSurface; clip: true; selectByMouse: true
                         text: Market.indexUrl
                         Accessible.name: "Extension index address"
                         onEditingFinished: Market.indexUrl = text
@@ -234,7 +300,7 @@ Item {
             Text {
                 width: parent.width; wrapMode: Text.WordWrap
                 visible: Market.message !== ""
-                text: Market.message; font.pixelSize: 13; color: Pal.onSurfaceVariant
+                text: Market.message; font.pixelSize: Math.round(13 * Pal.fs); color: Pal.onSurfaceVariant
             }
             Repeater {
                 model: Market.items
@@ -244,8 +310,8 @@ Item {
                     readonly property var local: { var l = Plugins.list; for (var i = 0; i < l.length; ++i) if (l[i].id === modelData.id) return l[i]; return null }
                     readonly property bool installed: local !== null
                     readonly property bool outdated: installed && local.version !== modelData.version
-                    width: col.width; height: scol.height + 36; radius: 24; color: Pal.surfaceHigh
-                    Rectangle { id: sb; x: 18; y: 18; width: 44; height: 44; radius: 16; color: Pal.secondaryContainer
+                    width: col.width; height: scol.height + 36; radius: 24 * Pal.rs; color: Pal.surfaceHigh
+                    Rectangle { id: sb; x: 18; y: 18; width: 44; height: 44; radius: 16 * Pal.rs; color: Pal.secondaryContainer
                                 Icon { anchors.centerIn: parent; name: "cloud"; size: 24; color: Pal.onSecondaryContainer } }
                     Column {
                         id: scol
@@ -253,10 +319,10 @@ Item {
                         spacing: 6
                         Row {
                             spacing: 8
-                            Text { text: modelData.name; font.pixelSize: 16; font.weight: Font.DemiBold; color: Pal.onSurface }
-                            Text { anchors.baseline: parent.children[0].baseline; text: modelData.version; font.pixelSize: 13; color: Pal.onSurfaceVariant }
+                            Text { text: modelData.name; font.pixelSize: Math.round(16 * Pal.fs); font.weight: Font.DemiBold; color: Pal.onSurface }
+                            Text { anchors.baseline: parent.children[0].baseline; text: modelData.version; font.pixelSize: Math.round(13 * Pal.fs); color: Pal.onSurfaceVariant }
                         }
-                        Text { width: parent.width; wrapMode: Text.WordWrap; text: modelData.description || ""; font.pixelSize: 13; color: Pal.onSurfaceVariant }
+                        Text { width: parent.width; wrapMode: Text.WordWrap; text: modelData.description || ""; font.pixelSize: Math.round(13 * Pal.fs); color: Pal.onSurfaceVariant }
                         Flow {
                             width: parent.width; spacing: 6
                             Chip { text: "Community" }
@@ -265,13 +331,13 @@ Item {
                         Text {
                             width: parent.width; wrapMode: Text.WordWrap
                             visible: (modelData.setup || "") !== ""
-                            text: "Setup: " + modelData.setup; font.pixelSize: 12; color: Pal.outline
+                            text: "Setup: " + modelData.setup; font.pixelSize: Math.round(12 * Pal.fs); color: Pal.outline
                         }
                         Text {
                             width: parent.width; wrapMode: Text.WordWrap
                             visible: sc.confirming
                             text: "This extension will run on your computer with your permissions. Only continue if you trust its author."
-                            font.pixelSize: 13; color: "#ffb4ab"
+                            font.pixelSize: Math.round(13 * Pal.fs); color: Pal.error
                         }
                     }
                     Column {
@@ -296,7 +362,7 @@ Item {
             }
             TextEdit {
                 width: parent.width; readOnly: true; selectByMouse: true; wrapMode: TextEdit.WrapAnywhere
-                text: Plugins.userDir; font.pixelSize: 12; color: Pal.outline
+                text: Plugins.userDir; font.pixelSize: Math.round(12 * Pal.fs); color: Pal.outline
             }
         }
     }

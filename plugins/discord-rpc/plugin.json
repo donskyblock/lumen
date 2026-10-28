@@ -1,0 +1,11 @@
+{
+  "id": "discord-rpc",
+  "name": "Discord Rich Presence",
+  "version": "0.1.0",
+  "description": "Shows what you're playing on your Discord profile, Spotify-style: \"Listening to <artist>\", the song, album art, a progress bar and a \"Listen for free on Lumen\" button. Off until you switch it on.",
+  "exec": ["python3", "-S", "main.py"],
+  "capabilities": ["presence"],
+  "memoryLimitMB": 20,
+  "defaultEnabled": false,
+  "setup": "Needs Discord running with the EquiPresence plugin (Vencord/Equicord) enabled. Lumen talks to it at 127.0.0.1:3210 using the token in ~/.equipresence/api-token. Switching this on shares what you listen to on your Discord profile."
+}

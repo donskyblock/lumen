@@ -25,6 +25,7 @@ public:
         qint64 posMs = 0;
         bool ended = false;  // queue ran dry (reported once)
         QString error;
+        qint64 failedToken = -1;   // a queued track could not be opened / died mid-stream (reported once)
     };
 
     explicit AudioEngine(QObject* parent = nullptr);
@@ -71,6 +72,7 @@ private:
     size_t m_cap = 0;
     quint64 m_rd = 0, m_wr = 0;
     std::deque<Segment> m_segs;
+    qint64 m_failTok = -1;          // token of the track that failed, until poll() reports it (guarded by m_mx)
 
     std::thread m_thread;
     std::atomic<bool> m_stop{false};

@@ -6,7 +6,7 @@ Rectangle {
     property bool accent: false
     implicitHeight: 24
     implicitWidth: label.implicitWidth + 20
-    radius: height / 2
+    radius: height * Pal.pf
     color: accent ? Pal.tertiary : Pal.surfaceHighest
 
     Text {
@@ -14,7 +14,7 @@ Rectangle {
         anchors.centerIn: parent
         text: root.text
         color: root.accent ? Pal.onTertiary : Pal.onSurfaceVariant
-        font.pixelSize: 12
+        font.pixelSize: Math.round(12 * Pal.fs)
         font.weight: Font.Medium
     }
 }

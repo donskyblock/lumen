@@ -20,44 +20,32 @@ add_executable(lumen
   src/Probe.cpp            src/Probe.h
   src/Covers.cpp           src/Covers.h
   src/Palette.cpp          src/Palette.h
-  src/Library.cpp          src/Library.h
+  src/Library.cpp          src/Library.h          src/Discovery.cpp
+  src/PlayStats.h
+  src/TextUtil.h
+  src/Playlists.cpp        src/Playlists.h
+  src/Profiles.cpp         src/Profiles.h
   src/AudioEngine.cpp      src/AudioEngine.h
   src/Db.cpp               src/Db.h
+  src/Catalog.cpp          src/Catalog.h
+  src/Resolver.cpp         src/Resolver.h
+  src/Metadata.cpp         src/Metadata.h
+  src/Presence.cpp         src/Presence.h
+  src/SongIndex.cpp        src/SongIndex.h
+  src/Taste.cpp            src/Taste.h
   src/PluginManager.cpp    src/PluginManager.h
   src/Lyrics.cpp           src/Lyrics.h
   src/Marketplace.cpp      src/Marketplace.h
   src/UiState.h
+  src/Bus.h
   src/Player.cpp           src/Player.h
   src/Icons.cpp            src/Icons.h
   src/WavyProgress.cpp     src/WavyProgress.h
   src/miniaudio_impl.cpp
 )
 
-qt_add_resources(lumen "qml" PREFIX "/" FILES
-  qml/Main.qml
-  qml/Icon.qml
-  qml/Cover.qml
-  qml/Chip.qml
-  qml/Switch.qml
-  qml/Backdrop.qml
-  qml/SearchPage.qml
-  qml/LyricsPage.qml
-  qml/SettingsPage.qml
-  qml/Pill.qml
-  qml/NavItem.qml
-  qml/IconButton.qml
-  qml/SearchField.qml
-  qml/Scrubber.qml
-  qml/ScrollIndicator.qml
-  qml/Util.js
-  qml/PlayerBar.qml
-  qml/Sidebar.qml
-  qml/AlbumsPage.qml
-  qml/SongsPage.qml
-  qml/AlbumDetail.qml
-  qml/NowPlayingPanel.qml
-  qml/EmptyState.qml
-)
+file(GLOB QML_FILES RELATIVE ${CMAKE_SOURCE_DIR} CONFIGURE_DEPENDS qml/*.qml qml/*.js)
+qt_add_resources(lumen "qml" PREFIX "/" FILES ${QML_FILES})
 
 target_include_directories(lumen PRIVATE third_party)
 target_link_libraries(lumen PRIVATE Qt6::Quick Qt6::Concurrent Qt6::Network PkgConfig::FFMPEG PkgConfig::SQLITE Threads::Threads ${CMAKE_DL_LIBS} m)

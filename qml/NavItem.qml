@@ -14,14 +14,14 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        radius: height / 2
+        radius: height * Pal.pf
         color: root.selected ? Pal.secondaryContainer : Pal.onSurface
         opacity: root.selected ? 1 : (mouse.containsMouse ? 0.08 : 0)
-        Behavior on opacity { NumberAnimation { duration: 100 } }
+        Behavior on opacity { NumberAnimation { duration: Pal.motion ? 100 : 0 } }
     }
     Rectangle {
         anchors.fill: parent
-        radius: height / 2
+        radius: height * Pal.pf
         color: "transparent"
         border.width: 2
         border.color: Pal.primary
@@ -40,7 +40,7 @@ Item {
         Text {
             anchors.verticalCenter: parent.verticalCenter
             text: root.text
-            font.pixelSize: 15
+            font.pixelSize: Math.round(15 * Pal.fs)
             font.weight: root.selected ? Font.DemiBold : Font.Medium
             color: root.selected ? Pal.onSecondaryContainer : Pal.onSurface
         }

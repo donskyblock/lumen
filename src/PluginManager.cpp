@@ -76,7 +76,7 @@ void PluginProcess::startIfNeeded()
     emit statusChanged();
 }
 
-void PluginProcess::call(const QString& method, const QJsonObject& params, PluginReply cb, int timeoutMs)
+void PluginProcess::call(const QString& method, const QJsonObject& params, PluginReply cb, int timeoutMs, PluginPartial partial)
 {
     if (m_info.exec.isEmpty()) { cb(false, {}, tr("This extension has no \"exec\" command.")); return; }
     startIfNeeded();
@@ -85,7 +85,7 @@ void PluginProcess::call(const QString& method, const QJsonObject& params, Plugi
     timer->setSingleShot(true);
     connect(timer, &QTimer::timeout, this, [this, id] { finish(id, false, {}, tr("The extension took too long to answer.")); });
     timer->start(timeoutMs);
-    m_pending.insert(id, {std::move(cb), timer});
+    m_pending.insert(id, {std::move(cb), std::move(partial), timer});
     const QByteArray line = QJsonDocument(QJsonObject{{"id", id}, {"method", method}, {"params", params}}).toJson(QJsonDocument::Compact) + '\n';
     if (m_started) m_proc.write(line); else m_outbox << line;
     m_idle.start();
@@ -103,6 +103,11 @@ void PluginProcess::onReadyRead()
         const QJsonObject o = QJsonDocument::fromJson(line, &pe).object();
         if (pe.error != QJsonParseError::NoError || !o.contains("id")) continue;
         const int id = o.value("id").toInt();
+        if (o.value("partial").toBool()) {
+            const auto it = m_pending.constFind(id);
+            if (it != m_pending.constEnd() && it->partial) it->partial(o.value("result"));
+            continue;
+        }
         if (o.contains("error")) finish(id, false, {}, o.value("error").toObject().value("message").toString(tr("Unknown error")));
         else finish(id, true, o.value("result"), {});
     }
@@ -198,7 +203,16 @@ void PluginManager::rescan()
             i.dir = QFileInfo(d.filePath(sub)).canonicalFilePath();
             i.official = isOfficial;
             i.memLimitMB = o.value("memoryLimitMB").toInt(isOfficial ? 20 : 64);
-            i.enabled = Db::get().kv("plugin." + i.id + ".enabled", isOfficial ? "1" : "0") == "1";
+            for (const QJsonValue& ov : o.value("options").toArray()) {
+                const QJsonObject oo = ov.toObject();
+                const QString key = oo.value("key").toString();
+                if (key.isEmpty()) continue;
+                i.options.push_back(QVariantMap{{"key", key}, {"label", oo.value("label").toString(key)}, {"hint", oo.value("hint").toString()},
+                                                {"type", oo.value("type").toString("text")}, {"choices", oo.value("choices").toArray().toVariantList()}});
+            }
+            // Official extensions start on, except those that share something about you (Discord status)
+            // and say so with "defaultEnabled": false.
+            i.enabled = Db::get().kv("plugin." + i.id + ".enabled", (isOfficial && o.value("defaultEnabled").toBool(true)) ? "1" : "0") == "1";
             m_info.insert(i.id, i);
             discovered << i.id;
         }
@@ -227,6 +241,32 @@ void PluginManager::saveOrder()
     Db::get().setKv("plugin.order", QString::fromUtf8(QJsonDocument(a).toJson(QJsonDocument::Compact)));
 }
 
+static QString optionKv(const QString& id, const QString& key) { return "plugin." + id + ".opt." + key; }
+
+QString PluginManager::optionValue(const QString& id, const QString& key) const
+{
+    return Db::get().kv(optionKv(id, key), QString());
+}
+
+void PluginManager::setOption(const QString& id, const QString& key, const QString& value)
+{
+    if (!m_info.contains(id)) return;
+    Db::get().setKv(optionKv(id, key), value.trimmed());
+    if (m_proc.contains(id)) m_proc[id]->stop();         // a fresh process picks the new setting up cleanly
+    emit changed();
+}
+
+QVariantList PluginManager::optionsWithValues(const PluginInfo& i) const
+{
+    QVariantList out;
+    for (const QVariant& v : i.options) {
+        QVariantMap m = v.toMap();
+        m["value"] = optionValue(i.id, m.value("key").toString());
+        out.push_back(m);
+    }
+    return out;
+}
+
 QVariantList PluginManager::list() const
 {
     QVariantList out;
@@ -237,7 +277,7 @@ QVariantList PluginManager::list() const
                                   {"capabilities", i.capabilities}, {"official", i.official}, {"enabled", i.enabled},
                                   {"status", p ? p->status() : QString()}, {"running", p && p->running()},
                                   {"memMB", p ? double(p->pssKB()) / 1024.0 : 0.0}, {"memLimit", i.memLimitMB},
-                                  {"setup", i.setup}, {"dir", i.dir}});
+                                  {"setup", i.setup}, {"dir", i.dir}, {"options", optionsWithValues(i)}});
     }
     return out;
 }
@@ -285,11 +325,24 @@ QStringList PluginManager::enabledWith(const QString& cap) const
 
 QString PluginManager::nameOf(const QString& id) const { return m_info.value(id).name; }
 
-void PluginManager::call(const QString& id, const QString& method, const QJsonObject& params, PluginReply cb, int timeoutMs)
+void PluginManager::call(const QString& id, const QString& method, const QJsonObject& params, PluginReply cb, int timeoutMs, PluginPartial partial)
 {
     PluginProcess* p = m_proc.value(id);
     if (!p) { cb(false, {}, tr("Unknown extension")); return; }
-    p->call(method, params, std::move(cb), timeoutMs);
+    // The extension's own settings travel with every call as "_options" (empty ones left out), so a
+    // changed setting takes effect on the next request without restarting anything by hand.
+    QJsonObject withOptions = params;
+    const PluginInfo info = m_info.value(id);
+    if (!info.options.isEmpty()) {
+        QJsonObject opts;
+        for (const QVariant& v : info.options) {
+            const QString key = v.toMap().value("key").toString();
+            const QString val = optionValue(id, key);
+            if (!val.isEmpty()) opts[key] = val;
+        }
+        if (!opts.isEmpty()) withOptions["_options"] = opts;
+    }
+    p->call(method, withOptions, std::move(cb), timeoutMs, std::move(partial));
 }
 
 void PluginManager::search(const QString& query)
@@ -298,11 +351,24 @@ void PluginManager::search(const QString& query)
     const QStringList ids = enabledWith("source");
     emit searchStarted(gen, ids);
     for (const QString& id : ids) {
-        call(id, "source.search", {{"query", query}, {"limit", 10}}, [this, gen, id](bool ok, const QJsonValue& v, const QString& err) {
+        auto items = std::make_shared<QVariantList>();
+        auto append = [items](const QJsonValue& v) {
+            for (const QJsonValue& x : v.toArray()) {
+                const QVariantMap item = x.toObject().toVariantMap();
+                const QString key = item.value("id").toString();
+                bool seen = false;
+                for (const QVariant& old : std::as_const(*items)) if (old.toMap().value("id").toString() == key) { seen = true; break; }
+                if (!seen) *items << item;
+            }
+        };
+        call(id, "source.search", {{"query", query}, {"limit", 10}}, [this, gen, id, items, append](bool ok, const QJsonValue& v, const QString& err) {
             if (gen != m_searchGen) return;
-            QVariantList items;
-            if (ok) for (const QJsonValue& x : v.toArray()) items << x.toObject().toVariantMap();
-            emit searchResult(gen, id, nameOf(id), items, ok ? QString() : err);
+            if (ok) append(v);
+            emit searchResult(gen, id, nameOf(id), *items, ok ? QString() : err);
+        }, 25000, [this, gen, id, items, append](const QJsonValue& v) {
+            if (gen != m_searchGen) return;
+            append(v);
+            emit searchResult(gen, id, nameOf(id), *items, {});
         });
     }
 }

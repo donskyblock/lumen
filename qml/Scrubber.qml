@@ -21,10 +21,10 @@ Item {
         id: bar
         anchors.fill: parent
         value: root.dragging ? root.dragValue : root.value
-        amplitude: root.waving ? 3 : 0
+        amplitude: root.waving && Pal.wavy ? 3 : 0
         activeColor: Pal.primary
         trackColor: Pal.outlineVariant
-        Behavior on amplitude { NumberAnimation { duration: 350; easing.type: Easing.OutCubic } }
+        Behavior on amplitude { NumberAnimation { duration: Pal.motion ? 350 : 0; easing.type: Easing.OutCubic } }
     }
     // ~30 fps, and only while there is actually a wave to animate.
     Timer {

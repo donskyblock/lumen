@@ -16,20 +16,20 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        radius: height / 2
+        radius: height * Pal.pf
         color: root.filled ? Pal.primary : Pal.secondaryContainer
     }
     Rectangle {
         anchors.fill: parent
-        radius: height / 2
+        radius: height * Pal.pf
         color: root.filled ? Pal.onPrimary : Pal.onSecondaryContainer
         opacity: mouse.pressed ? 0.16 : (mouse.containsMouse ? 0.08 : 0)
-        Behavior on opacity { NumberAnimation { duration: 100 } }
+        Behavior on opacity { NumberAnimation { duration: Pal.motion ? 100 : 0 } }
     }
     Rectangle {
         anchors.fill: parent
         anchors.margins: -3
-        radius: height / 2
+        radius: height * Pal.pf
         color: "transparent"
         border.width: 2
         border.color: Pal.primary
@@ -49,7 +49,7 @@ Item {
         Text {
             anchors.verticalCenter: parent.verticalCenter
             text: root.text
-            font.pixelSize: 15
+            font.pixelSize: Math.round(15 * Pal.fs)
             font.weight: Font.DemiBold
             color: root.filled ? Pal.onPrimary : Pal.onSecondaryContainer
         }

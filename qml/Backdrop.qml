@@ -1,4 +1,5 @@
 import QtQuick
+import "Util.js" as U
 
 // Soft colour wash taken from the cover art: a 48 px copy of the cover,
 // stretched with smoothing, fading into the panel colour. No shaders or
@@ -18,8 +19,8 @@ Item {
         smooth: true
         fillMode: Image.Stretch
         visible: status === Image.Ready
-        opacity: root.strength
-        source: root.key ? "image://cover/" + root.key + "@48@" + Math.round(root.cornerRadius / Math.max(1, root.width) * 100) : ""
+        opacity: root.strength * Pal.backdrop
+        source: root.key ? "image://cover/" + U.coverId(root.key) + "@48@" + Math.round(root.cornerRadius / Math.max(1, root.width) * 100) : ""
     }
     Rectangle {
         anchors.fill: parent

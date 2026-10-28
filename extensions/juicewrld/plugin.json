@@ -1,0 +1,20 @@
+
+{
+  "id": "juicewrld",
+  "name": "Juice WRLD API",
+  "version": "1.0.0",
+  "description": "Search and stream Juice WRLD catalogue entries from the Juice WRLD API, with API-provided artwork. Recording-session entries are excluded.",
+  "author": "Lumen",
+  "exec": [
+    "python3",
+    "-S",
+    "main.py"
+  ],
+  "capabilities": [
+    "source",
+    "recommend"
+  ],
+  "memoryLimitMB": 64,
+  "setup": "Uses public read endpoints at https://juicewrldapi.com/juicewrld. Internet access is required. The API is community-maintained; availability and metadata can change. This extension does not bundle music files.",
+  "options": []
+}

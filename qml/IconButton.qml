@@ -23,7 +23,7 @@ Item {
         radius: width / 2
         color: Pal.onSurface
         opacity: mouse.pressed ? 0.14 : (mouse.containsMouse ? 0.08 : 0)
-        Behavior on opacity { NumberAnimation { duration: 100 } }
+        Behavior on opacity { NumberAnimation { duration: Pal.motion ? 100 : 0 } }
     }
     Rectangle {
         anchors.fill: parent

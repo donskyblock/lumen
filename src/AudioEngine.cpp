@@ -41,6 +41,7 @@ void AudioEngine::stop()
     std::lock_guard<std::mutex> g(m_mx);
     m_rd = m_wr;
     m_segs.clear();
+    m_failTok = -1;
     m_playing = false;
 }
 
@@ -51,6 +52,7 @@ void AudioEngine::load(const QString& path, qint64 token, qint64 startMs, bool a
         std::lock_guard<std::mutex> g(m_mx);
         m_rd = m_wr;
         m_segs.clear();
+        m_failTok = -1;
     }
     { std::lock_guard<std::mutex> g(m_jobMx); m_next = {}; m_cur = {path, token, startMs, true, headers}; }
     m_error.clear();
@@ -114,6 +116,8 @@ AudioEngine::Poll AudioEngine::poll()
             p.posMs = s.baseMs + qint64(frames * 1000 / quint64(std::max(1, s.rate)));
         }
         p.error = m_error;
+        p.failedToken = m_failTok;
+        m_failTok = -1;
     }
     if (m_ended.exchange(false)) p.ended = true;
     return p;
@@ -235,7 +239,10 @@ void AudioEngine::decodeLoop(Job job)
 {
     while (!m_stop) {
         { std::lock_guard<std::mutex> g(m_jobMx); m_cur = job; }
-        decodeOne(job);
+        // A stream address may have expired or been rejected after it was
+        // resolved. Do not silently consume m_next in that case: it makes a
+        // failed song look as though the player randomly skipped it.
+        if (!decodeOne(job)) break;
         if (m_stop) return;
         Job nxt;
         {
@@ -274,6 +281,7 @@ bool AudioEngine::decodeOne(const Job& job)
     auto fail = [&](const char* msg) {
         std::lock_guard<std::mutex> g(m_mx);
         m_error = QString::fromUtf8(msg) + QStringLiteral(": ") + job.path;
+        m_failTok = job.token;
         cleanup();
         return false;
     };
@@ -284,13 +292,21 @@ bool AudioEngine::decodeOne(const Job& job)
         av_dict_set(&opts, "reconnect", "1", 0);
         av_dict_set(&opts, "reconnect_streamed", "1", 0);
         av_dict_set(&opts, "reconnect_delay_max", "5", 0);
+        av_dict_set(&opts, "reconnect_on_network_error", "1", 0);
+        av_dict_set(&opts, "reconnect_on_http_error", "5xx", 0);
         av_dict_set(&opts, "rw_timeout", "15000000", 0);
         av_dict_set(&opts, "user_agent", "Lumen/0.2", 0);
         if (!job.headers.isEmpty()) av_dict_set(&opts, "headers", job.headers.toUtf8().constData(), 0);
     }
+    const bool remote = job.path.contains("://");
     const int openRc = avformat_open_input(&fmt, p.constData(), nullptr, &opts);
     av_dict_free(&opts);
-    if (openRc < 0) return fail("Cannot open file");
+    if (openRc < 0) {
+        char why[128] = {0};
+        av_strerror(openRc, why, sizeof why);
+        const QByteArray msg = QByteArray(remote ? "Cannot open stream (" : "Cannot open file (") + why + ")";
+        return fail(msg.constData());
+    }
     if (avformat_find_stream_info(fmt, nullptr) < 0) return fail("Cannot read stream info");
     const AVCodec* codec = nullptr;
     const int si = av_find_best_stream(fmt, AVMEDIA_TYPE_AUDIO, -1, -1, &codec, 0);
@@ -334,6 +350,7 @@ bool AudioEngine::decodeOne(const Job& job)
 
     std::vector<float> out;
     bool draining = false;
+    bool streamBroke = false;       // a network stream stopped delivering data before its real end
     while (!m_stop) {
         if (m_seekReq.exchange(false)) {
             doSeek(m_seekMs);
@@ -347,6 +364,9 @@ bool AudioEngine::decodeOne(const Job& job)
                 if (pkt->stream_index == si) avcodec_send_packet(ctx, pkt);
                 av_packet_unref(pkt);
             } else {
+                // A clean end is AVERROR_EOF. Anything else on a network stream (connection reset, link
+                // expired -> 403, timeout) is a dropped stream: report it instead of calling the song over.
+                if (rc != AVERROR_EOF && remote) streamBroke = true;
                 avcodec_send_packet(ctx, nullptr);
                 draining = true;
             }
@@ -372,7 +392,12 @@ bool AudioEngine::decodeOne(const Job& job)
             if (n > skip && !writeFrames(out.data() + size_t(skip) * outCh, size_t(n - skip))) break;
         }
         if (m_seekReq) continue;
-        if (draining && !gotAny) { ok = true; break; }
+        if (draining && !gotAny) { ok = !streamBroke; break; }
+    }
+    if (streamBroke && !m_stop) {
+        std::lock_guard<std::mutex> g(m_mx);
+        m_error = QStringLiteral("Stream interrupted: ") + job.path;
+        m_failTok = job.token;
     }
     cleanup();
     return ok;

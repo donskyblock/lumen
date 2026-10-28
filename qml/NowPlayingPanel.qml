@@ -3,9 +3,9 @@ import "Util.js" as U
 
 Rectangle {
     id: root
-    radius: 28
+    radius: 28 * Pal.rs
     color: Pal.surfaceLow
-    Behavior on color { ColorAnimation { duration: 500 } }
+    Behavior on color { ColorAnimation { duration: Pal.motion ? 500 : 0 } }
 
     Backdrop {
         anchors.top: parent.top
@@ -39,7 +39,7 @@ Rectangle {
             width: parent.width
             text: Player.title
             elide: Text.ElideRight
-            font.pixelSize: 22
+            font.pixelSize: Math.round(22 * Pal.fs)
             font.weight: Font.Bold
             color: Pal.onSurface
         }
@@ -47,17 +47,27 @@ Rectangle {
             width: parent.width
             text: Player.artist
             elide: Text.ElideRight
-            font.pixelSize: 15
+            font.pixelSize: Math.round(15 * Pal.fs)
             color: Pal.onSurfaceVariant
         }
         Text {
             width: parent.width
             text: Player.album
             elide: Text.ElideRight
-            font.pixelSize: 13
+            font.pixelSize: Math.round(13 * Pal.fs)
             color: Pal.outline
         }
         Item { width: 1; height: 6 }
+        Row {
+            spacing: 4
+            visible: Player.currentPath !== "" && Player.currentPath.indexOf("://") < 0
+            IconButton {
+                readonly property bool liked: Playlists.revision >= 0 && Playlists.isLiked(Player.currentPath)
+                icon: liked ? "favorite" : "favorite_border"; active: liked
+                onClicked: Playlists.toggleLike(Player.currentPath)
+            }
+            IconButton { icon: "playlist_add"; onClicked: Bus.pickPlaylist([Player.currentPath]) }
+        }
         Flow {
             width: parent.width
             spacing: 6
@@ -72,7 +82,7 @@ Rectangle {
         anchors.topMargin: 22
         anchors.left: art.left
         text: "Up next"
-        font.pixelSize: 15
+        font.pixelSize: Math.round(15 * Pal.fs)
         font.weight: Font.DemiBold
         color: Pal.onSurface
         visible: Player.upNext.length > 0
@@ -94,7 +104,7 @@ Rectangle {
             Rectangle {
                 anchors.fill: parent
                 anchors.leftMargin: 8; anchors.rightMargin: 8
-                radius: 16
+                radius: 16 * Pal.rs
                 color: Pal.surfaceHigh
                 opacity: qm.containsMouse ? 1 : 0
             }
@@ -109,8 +119,8 @@ Rectangle {
                 anchors.left: qc.right; anchors.leftMargin: 12
                 anchors.right: parent.right; anchors.rightMargin: 16
                 anchors.verticalCenter: parent.verticalCenter
-                Text { width: parent.width; text: modelData.title; elide: Text.ElideRight; font.pixelSize: 13; font.weight: Font.Medium; color: Pal.onSurface }
-                Text { width: parent.width; text: modelData.artist; elide: Text.ElideRight; font.pixelSize: 12; color: Pal.onSurfaceVariant }
+                Text { width: parent.width; text: modelData.title; elide: Text.ElideRight; font.pixelSize: Math.round(13 * Pal.fs); font.weight: Font.Medium; color: Pal.onSurface }
+                Text { width: parent.width; text: modelData.artist; elide: Text.ElideRight; font.pixelSize: Math.round(12 * Pal.fs); color: Pal.onSurfaceVariant }
             }
             MouseArea { id: qm; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: Player.jumpTo(index) }
         }

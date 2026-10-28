@@ -25,8 +25,8 @@ Item {
             anchors.right: chips.left
             anchors.rightMargin: 16
             anchors.verticalCenter: parent.verticalCenter
-            Text { width: parent.width; text: Player.title; elide: Text.ElideRight; font.pixelSize: 18; font.weight: Font.DemiBold; color: Pal.onSurface }
-            Text { width: parent.width; text: Player.artist; elide: Text.ElideRight; font.pixelSize: 14; color: Pal.onSurfaceVariant }
+            Text { width: parent.width; text: Player.title; elide: Text.ElideRight; font.pixelSize: Math.round(18 * Pal.fs); font.weight: Font.DemiBold; color: Pal.onSurface }
+            Text { width: parent.width; text: Player.artist; elide: Text.ElideRight; font.pixelSize: Math.round(14 * Pal.fs); color: Pal.onSurfaceVariant }
         }
         Row {
             id: chips
@@ -74,13 +74,13 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 text: modelData.text
                 wrapMode: Text.WordWrap
-                font.pixelSize: 30
+                font.pixelSize: Math.round(30 * Pal.fs)
                 font.weight: Font.Bold
                 lineHeight: 1.05
                 color: ln.isCurrent ? Pal.onSurface : (Lyrics.synced ? Pal.onSurfaceVariant : Pal.onSurface)
                 opacity: ln.isCurrent || !Lyrics.synced ? 1.0 : (index < Lyrics.current ? 0.28 : 0.5)
-                Behavior on opacity { NumberAnimation { duration: 260 } }
-                Behavior on color { ColorAnimation { duration: 260 } }
+                Behavior on opacity { NumberAnimation { duration: Pal.motion ? 260 : 0 } }
+                Behavior on color { ColorAnimation { duration: Pal.motion ? 260 : 0 } }
             }
             MouseArea {
                 anchors.fill: parent
@@ -101,14 +101,14 @@ Item {
         Icon { anchors.horizontalCenter: parent.horizontalCenter; name: "lyrics"; size: 44; color: Pal.outline }
         Text {
             width: parent.width; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.WordWrap
-            font.pixelSize: 20; font.weight: Font.DemiBold; color: Pal.onSurface
+            font.pixelSize: Math.round(20 * Pal.fs); font.weight: Font.DemiBold; color: Pal.onSurface
             text: !Player.hasTrack ? "Play something to see its lyrics"
                   : Lyrics.state === "loading" ? "Looking for lyrics\u2026"
                   : "No lyrics found"
         }
         Text {
             width: parent.width; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.WordWrap
-            font.pixelSize: 14; color: Pal.onSurfaceVariant
+            font.pixelSize: Math.round(14 * Pal.fs); color: Pal.onSurfaceVariant
             visible: Player.hasTrack && Lyrics.state === "none"
             text: "Put a .lrc file next to the song, or turn on a lyrics extension in Settings. Lumen picks the closest match by title, artist and length."
         }

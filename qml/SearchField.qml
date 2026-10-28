@@ -4,9 +4,11 @@ Rectangle {
     id: root
     property alias text: input.text
     property string placeholder: "Search"
+    property alias input: input
+    function focusInput() { input.forceActiveFocus(); input.selectAll() }
 
     implicitHeight: 48
-    radius: height / 2
+    radius: height * Pal.pf
     color: Pal.surfaceHigh
     border.width: input.activeFocus ? 2 : 0
     border.color: Pal.primary
@@ -26,7 +28,7 @@ Rectangle {
         anchors.right: clear.left
         anchors.rightMargin: 8
         anchors.verticalCenter: parent.verticalCenter
-        font.pixelSize: 15
+        font.pixelSize: Math.round(15 * Pal.fs)
         color: Pal.onSurface
         selectionColor: Pal.primaryContainer
         selectedTextColor: Pal.onPrimaryContainer
@@ -39,7 +41,7 @@ Rectangle {
         verticalAlignment: Text.AlignVCenter
         text: root.placeholder
         color: Pal.onSurfaceVariant
-        font.pixelSize: 15
+        font.pixelSize: Math.round(15 * Pal.fs)
         visible: input.text.length === 0
     }
     IconButton {
