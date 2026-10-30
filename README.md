@@ -105,3 +105,7 @@ Hooks (with `LUMEN_SHOT`): `LUMEN_PLAY_ARTIST=<id>`, `LUMEN_IMPORT_ARTIST=<id>`,
 `LUMEN_SHOT=/tmp/x.png` with `LUMEN_ROUTE` (home, artists, albums, songs, lyrics, settings, artist, album, playlist, mix) + `LUMEN_ROUTE_ARG`, `LUMEN_QUERY`, `LUMEN_PROFILE=<preset>`, `LUMEN_PLAY=1`,
 `LUMEN_SEEK=ms`, `LUMEN_REMOTE=pluginId:itemId`, `LUMEN_DELAY=ms` navigates, prints RSS/state, saves a screenshot and exits.
 Run headless with `QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software`.
+
+## AI Disclaimer:
+
+Lumen is a project which uses AI to help with its development, as a tool not a crutch, this is part of what I live by. I use it to assist with development but it is not the sole mandate for the code in it. Anything which has been written by AI has been validated by myself an experienced C++ developer. For sake of ethical reasons this should always be included to clarify to anyone using it. To be fair. If you wish to use AI to contribute with this project a disclaimer is required for obvious reasons. 
